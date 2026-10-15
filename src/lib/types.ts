@@ -103,6 +103,10 @@ export interface Customer {
   closed_date: string | null
   prospect: boolean
   notes: string | null
+  aigoal_contact_id: string | null
+  aigoal_tags: string[]
+  aigoal_status: string | null
+  purchased: boolean
 }
 
 export interface PurchaseAccount {

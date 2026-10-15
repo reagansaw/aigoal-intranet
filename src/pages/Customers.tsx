@@ -25,6 +25,7 @@ export default function Customers() {
   const [pri, setPri] = useState('all')
   const [batch, setBatch] = useState('all')
   const [owner, setOwner] = useState('all')
+  const [buy, setBuy] = useState('all')
   const [edit, setEdit] = useState<Partial<Customer> | null>(null)
   const [err, setErr] = useState('')
 
@@ -43,11 +44,11 @@ export default function Customers() {
   const batches = useMemo(() => [...new Set(rows.map((r) => r.batch).filter(Boolean))] as string[], [rows])
   const owners = useMemo(() => [...new Set(rows.map(ownerOf).filter(Boolean))].sort(), [rows, staff])
   const shown = rows.filter((r) =>
-    (pri === 'all' || r.priority === pri) && (batch === 'all' || r.batch === batch) &&
+    (pri === 'all' || r.priority === pri) && (buy === 'all' || (buy === 'yes') === r.purchased) && (batch === 'all' || r.batch === batch) &&
     (owner === 'all' || (owner === 'none' ? !ownerOf(r) : ownerOf(r) === owner)) &&
     (!q || [r.name, r.phone, r.email, r.industry].join(' ').toLowerCase().includes(q.toLowerCase())))
   const count = (p: string) => shown.filter((r) => r.priority === p).length
-  const closed = shown.filter((r) => r.closed_date || /成交|bought|closed|won/i.test(r.result ?? '')).length
+  const closed = shown.filter((r) => r.purchased || r.closed_date || /成交|bought|closed|won|purchased/i.test(r.result ?? '')).length
 
   // owner picker: real staff + names that have leads but no login yet
   const ownerOpts = [
@@ -109,12 +110,13 @@ export default function Customers() {
         <Stat icon={Timer} tone="orange" label="P2 · Left early" value={count('P2')} active={pri === 'P2'} onClick={() => setPri(pri === 'P2' ? 'all' : 'P2')} />
         <Stat icon={MessageCircle} tone="yellow" label="P3 · Replied YES" value={count('P3')} active={pri === 'P3'} onClick={() => setPri(pri === 'P3' ? 'all' : 'P3')} />
         <Stat icon={Hourglass} tone="gray" label="P4 · No response" value={count('P4')} active={pri === 'P4'} onClick={() => setPri(pri === 'P4' ? 'all' : 'P4')} />
-        <Stat icon={BadgeCheck} tone="green" label="Closed" value={closed} />
+        <Stat icon={BadgeCheck} tone="green" label="Purchased" value={closed} active={buy === 'yes'} onClick={() => setBuy(buy === 'yes' ? 'all' : 'yes')} />
       </div>
       <div className="row" style={{ marginBottom: '1rem' }}>
         <SearchBox value={q} onChange={setQ} placeholder="Search name, phone, email…" />
         <Select value={pri} onChange={setPri} options={[{ value: 'all', label: 'All priorities' }, ...PRI]} />
         <Select value={batch} onChange={setBatch} options={[{ value: 'all', label: 'All webinars' }, ...opts(batches)]} />
+        <Select value={buy} onChange={setBuy} options={[{ value: 'all', label: 'All customers' }, { value: 'yes', label: 'Purchased' }, { value: 'no', label: 'Not purchased' }]} />
         {isAdmin && <Select value={owner} onChange={setOwner} options={[{ value: 'all', label: 'All sales' }, { value: 'none', label: 'Unassigned' }, ...opts(owners)]} />}
         <span className="muted sm-text">{shown.length} customers</span>
       </div>
@@ -125,7 +127,7 @@ export default function Customers() {
             {shown.slice(0, 300).map((r) => (
               <tr key={r.id} className="click" onClick={() => { setEdit(r); setErr('') }}>
                 <td><PriorityBadge p={r.priority} /></td>
-                <td><span className="cell-title">{r.name}</span> {r.prospect && <Star size={14} className="i" style={{ color: '#eab308' }} />}</td>
+                <td><span className="cell-title">{r.name}</span> {r.purchased && <span className="tag good"><BadgeCheck size={12} />Purchased</span>} {r.prospect && <Star size={14} className="i" style={{ color: '#eab308' }} />}</td>
                 <td>{r.phone && <a href={`https://wa.me/${r.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}</td>
                 <td>{r.industry}</td>{isAdmin && <td>{ownerOf(r) || <span className="muted">—</span>}</td>}<td>{r.batch}</td>
                 <td>{r.called ? <PhoneCall size={16} className="i" style={{ color: 'var(--ok)' }} /> : r.not_available ? <PhoneOff size={16} className="i" style={{ color: 'var(--muted)' }} /> : null}</td>
@@ -151,6 +153,14 @@ export default function Customers() {
               {txt('missed_leads', 'Missed leads')}{txt('other_courses', 'Other courses attended')}{txt('not_interested_reason', 'Not interested: reason')}{txt('result', 'Follow-up result')}
               <div className="field"><label>Closed date</label><DatePicker value={edit.closed_date ?? ''} onChange={(v) => set('closed_date', v)} /></div>
             </div>
+            {(edit.purchased || edit.aigoal_tags?.length) ? (
+              <div className="field"><label>From app.aigoal.ai {edit.aigoal_status && `· status: ${edit.aigoal_status}`}</label>
+                <div className="row" style={{ gap: '.35rem' }}>
+                  {edit.purchased && <span className="tag good"><BadgeCheck size={12} />Purchased</span>}
+                  {(edit.aigoal_tags ?? []).map((t) => <span key={t} className="tag">{t}</span>)}
+                </div>
+              </div>
+            ) : null}
             <div className="field"><label>Lead channels</label>
               <div className="row" style={{ gap: '.9rem' }}>{CHANNELS.map((c) => (
                 <label key={c} className="check"><input type="checkbox" checked={edit.channels?.includes(c) ?? false} onChange={(e) => set('channels', e.target.checked ? [...(edit.channels ?? []), c] : (edit.channels ?? []).filter((x) => x !== c))} />{c}</label>

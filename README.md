@@ -47,6 +47,11 @@ This reproduces the Winson sheet; build a Sales KPI template by duplicating it a
   created in People (e.g. "Winson Tan", "Aaron Lim"), that person's leads are linked to them automatically and they
   see only those leads.
 
+- **app.aigoal.ai link** – leads from the `webinar-2026-09-16` … `webinar-2026-10-21` tags of the AIGOAL.ai tenant
+  (`/api/contacts/list`) were matched by phone/email per webinar: 809 linked, 47 new (mostly the 21 Oct webinar).
+  Each lead keeps its app contact id, tags and status. Status `won` (or tag `purchased`) shows a green **Purchased** tag
+  in Follow-Up Customers (filterable). Existing priorities and sales owners were not changed; new leads start at P4.
+
 ## UI conventions
 
 Icons are `lucide-react` (no emoji). One shared `Select`, `DatePicker` and `NumberInput` (plain text input, no spinner)

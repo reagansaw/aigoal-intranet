@@ -75,12 +75,14 @@ export default function Accounts() {
       </div>
       <div className="card flush table-wrap">
         <table>
-          <thead><tr><th>Account</th><th>Contact</th><th>Industry</th><th>Purchased</th><th>Stage</th><th>In use</th><th>Sales</th><th>Issue / next action</th><th>Deadline</th><th></th></tr></thead>
+          <thead><tr><th>Account</th><th>Name</th><th>Email</th><th>Phone</th><th>Industry</th><th>Purchased</th><th>Stage</th><th>In use</th><th>Sales</th><th>Issue / next action</th><th>Deadline</th><th></th></tr></thead>
           <tbody>
             {shown.map((r) => (
               <tr key={r.id} className="click" onClick={() => { setEdit(r); setErr('') }}>
                 <td><div className="cell-title">{r.account_name}</div><div className="muted sm-text">{r.category}</div></td>
-                <td>{r.contact_person}<div className="muted sm-text">{r.phone && <a href={`https://wa.me/${r.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}</div></td>
+                <td className="cell-title">{r.contact_person || <span className="muted">—</span>}</td>
+                <td>{r.email ? <a href={`mailto:${r.email}`} onClick={(e) => e.stopPropagation()}>{r.email}</a> : <span className="muted">—</span>}</td>
+                <td className="nowrap">{r.phone ? <a href={`https://wa.me/${r.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a> : <span className="muted">—</span>}</td>
                 <td>{r.industry}</td><td className="nowrap">{r.purchase_date}</td>
                 <td className="nowrap">{r.onboarding_stage && <span className="tag brand">Stage {r.onboarding_stage}</span>}</td>
                 <td>{r.in_use && <span className={'tag ' + (r.in_use === 'Y' ? 'good' : r.in_use === 'N' ? 'warn' : '')}>{useLabel(r.in_use)}</span>}</td>
