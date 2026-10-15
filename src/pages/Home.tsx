@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, BarChart3, CalendarClock, CalendarDays, ClipboardCheck, ExternalLink, Hammer, KeyRound, ListChecks, MessageSquareWarning, NotebookPen, PhoneCall, Pin, Plane, ShieldCheck, UserX, Users, Wallet, Wrench, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, ArrowRight, BarChart3, CalendarClock, CalendarDays, Check, ClipboardCheck, ExternalLink, Hammer, KeyRound, ListChecks, MessageSquareWarning, NotebookPen, PhoneCall, Pin, Plane, ShieldCheck, UserX, Users, Wallet, Wrench, type LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { loadUserPayouts } from '../lib/kpiLoad'
@@ -101,10 +101,14 @@ function Attention({ items }: { items: Item[] }) {
 export default function Home() {
   const { profile, isAdmin } = useAuth()
   const [todos, setTodos] = useState<Todo[]>([])
+  // Team status: Admin accounts are left out; tick who to show (remembered in this browser)
+  const [hidden, setHiddenRaw] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('team-hidden') ?? '[]') } catch { return [] } })
+  const setHidden = (v: string[]) => { setHiddenRaw(v); try { localStorage.setItem('team-hidden', JSON.stringify(v)) } catch { /* private mode */ } }
   const [pinned, setPinned] = useState<KbArticle[]>([])
   const [hot, setHot] = useState(0)
   const [kpi, setKpi] = useState<{ score: number; max: number; total: number; cur: string; tpl: string } | null>(null)
   const [ov, setOv] = useState<Overview | null>(null)
+  const team = (ov?.staff ?? []).filter((s) => s.role !== 'admin')
   const [accounts, setAccounts] = useState<PurchaseAccount[]>([])
   const [sessions, setSessions] = useState<OnboardingSession[]>([])
   const [mine, setMine] = useState({ waiting: 0, overdue: 0, unscheduled: 0, meeting: 0, pm: 0 })
@@ -226,10 +230,16 @@ export default function Home() {
 
           <div className="card flush table-wrap">
             <div className="card-head" style={{ padding: '1rem 1.25rem 0' }}><h2><Users size={17} className="i" />Team status</h2><span className="muted sm-text">Today, {dayLabel(today())}</span></div>
+            <div className="chips" style={{ padding: '.7rem 1.25rem 0' }}>
+              <span className="muted sm-text" style={{ alignSelf: 'center' }}>Show:</span>
+              {team.map((s) => { const on = !hidden.includes(s.id); return (
+                <button key={s.id} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} onClick={() => setHidden(on ? [...hidden, s.id] : hidden.filter((x) => x !== s.id))}>{on && <Check size={13} />}{(s.name || '').split(' ')[0]}</button>
+              ) })}
+            </div>
             <table>
               <thead><tr><th>Person</th><th>To-do</th><th>Accounts</th><th>Leads</th><th>Last seen</th></tr></thead>
               <tbody>
-                {ov.staff.filter((s) => !(s.role === 'admin' && !s.title)).map((s) => (
+                {team.filter((s) => !hidden.includes(s.id)).map((s) => (
                   <tr key={s.id}>
                     <td style={{ minWidth: 180 }}>
                       <div className="row" style={{ flexWrap: 'nowrap', gap: '.6rem' }}>

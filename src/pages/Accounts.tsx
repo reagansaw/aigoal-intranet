@@ -38,6 +38,9 @@ export default function Accounts() {
   const [err, setErr] = useState('')
   const [toast, setToast] = useState('')
   const [remindNote, setRemindNote] = useState('')
+  const [remindFor, setRemindFor] = useState<{ id: string; pid: string; name: string } | null>(null)
+  const [remindText, setRemindText] = useState('')
+  const remindWhat = (id: string) => { const n = (notesBy.get(id) ?? []).find((x) => x.kind === 'reminder' && x.body.startsWith('Reminder sent to')); const i = n ? n.body.indexOf(': ') : -1; return i > 0 ? n!.body.slice(i + 2) : '' }
   const [bump, setBump] = useState(0)
   const me = profile!.id
 
@@ -175,6 +178,7 @@ export default function Accounts() {
                     {r.pending_on_id && (
                       <div className="stack-sm" style={{ marginTop: '.45rem' }} onClick={(e) => e.stopPropagation()}>
                         <span className="tag warn" style={{ width: 'fit-content' }}><Bell size={12} />Pending {r.pending_on_name}</span>
+                        {remindWhat(r.id) && <span className="sm-text" style={{ maxWidth: 260 }}>{remindWhat(r.id)}</span>}
                         <span className="muted sm-text">{r.pending_since && ago(r.pending_since)}{r.pending_by_name && ` · by ${r.pending_by_name}`}</span>
                         {(r.pending_on_id === me || mine) && <button className="sm" style={{ width: 'fit-content' }} onClick={() => clearRemind(r.id)}><Check size={13} />Mark done</button>}
                       </div>
@@ -195,7 +199,7 @@ export default function Accounts() {
                       {mine && p.stage === 'dev' && <button className="sm primary" onClick={() => act(r.id, 'start')}><Hammer size={14} />Develop</button>}
                       {mine && p.stage === 'devdone' && <button className="sm primary" onClick={() => act(r.id, 'done')}><Check size={14} />Develop Done</button>}
                       <div className="row" style={{ gap: '.3rem', flexWrap: 'nowrap' }}>
-                        <Menu label="Remind" icon={Bell} options={remindOptions} onPick={(pid) => remind(r.id, pid)} />
+                        <Menu label="Remind" icon={Bell} options={remindOptions} onPick={(pid) => { setRemindText(''); setRemindFor({ id: r.id, pid, name: remindOptions.find((o) => o.value === pid)?.label ?? '' }) }} />
                         <button className="ghost icon sm" aria-label={mine ? 'Edit' : 'View'} onClick={() => open(r)}>{mine ? <Pencil size={15} /> : <Eye size={15} />}</button>
                       </div>
                     </div>
@@ -316,8 +320,8 @@ export default function Accounts() {
               ) : (
                 <div className="pend none">
                   <div style={{ flex: 1, minWidth: 220 }}><b><Bell size={14} className="i" /> Remind someone</b><div className="muted sm-text">Marks this account “Pending &lt;person&gt;” so it shows up on their dashboard.</div>
-                    <input style={{ marginTop: '.5rem' }} placeholder="Add a note (optional)" value={remindNote} onChange={(e) => setRemindNote(e.target.value)} /></div>
-                  <Menu label="Remind…" icon={Bell} primary options={remindOptions} onPick={async (pid) => { if (await remind(edit.id!, pid, remindNote)) { setRemindNote(''); const t = remindOptions.find((o) => o.value === pid)?.label ?? null; setEdit({ ...edit, pending_on_id: pid, pending_on_name: t, pending_since: new Date().toISOString(), pending_by_name: profile?.full_name ?? null }) } }} />
+                    <input style={{ marginTop: '.5rem' }} placeholder="Remind about what? (required)" value={remindNote} onChange={(e) => setRemindNote(e.target.value)} /></div>
+                  <Menu label="Remind…" icon={Bell} primary options={remindOptions} onPick={async (pid) => { if (!remindNote.trim()) return setErr('Write what the reminder is about first.'); setErr(''); if (await remind(edit.id!, pid, remindNote.trim())) { setRemindNote(''); const t = remindOptions.find((o) => o.value === pid)?.label ?? null; setEdit({ ...edit, pending_on_id: pid, pending_on_name: t, pending_since: new Date().toISOString(), pending_by_name: profile?.full_name ?? null }) } }} />
                 </div>
               )}
               <AccountNotes accountId={edit.id} refreshKey={bump} onChange={load} />
@@ -328,6 +332,13 @@ export default function Accounts() {
         </Modal>
       )}
 
+      {remindFor && (
+        <Modal title={`Remind ${remindFor.name}`} onClose={() => setRemindFor(null)}>
+          <p className="muted" style={{ marginTop: 0 }}>This account becomes “Pending {remindFor.name}” and shows on their dashboard. Say what you need from them.</p>
+          <div className="field"><label>Remind about what? (required)</label><textarea autoFocus value={remindText} onChange={(e) => setRemindText(e.target.value)} placeholder="e.g. Please send the landing page link to the customer today" /></div>
+          <div className="modal-foot"><button className="primary" disabled={!remindText.trim()} onClick={async () => { if (await remind(remindFor.id, remindFor.pid, remindText.trim())) setRemindFor(null) }}><Bell size={16} />Send reminder</button></div>
+        </Modal>
+      )}
     </>
   )
 }

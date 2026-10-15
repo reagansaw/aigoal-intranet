@@ -14,8 +14,10 @@ const PRIORITIES = [{ value: 'low', label: 'Low' }, { value: 'normal', label: 'N
 
 export default function Todos() {
   const { profile, isManager } = useAuth()
-  const staff = useStaff()
+  const allStaff = useStaff()
+  const staff = allStaff.filter((s) => s.role !== 'admin') // admin-level accounts are not listed
   const [uid, setUid] = useState(profile!.id)
+  useEffect(() => { if (profile!.role === 'admin' && staff.length && !staff.some((s) => s.id === uid)) setUid(staff[0].id) }, [staff.length])
   const [view, setView] = useState<'day' | 'month'>('day')
   const [day, setDay] = useState(today())
   const [month, setMonth] = useState(monthStart(new Date()))
