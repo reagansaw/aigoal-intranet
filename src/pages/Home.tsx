@@ -39,24 +39,34 @@ const ago = (iso: string | null) => {
 
 const syncAgo = (iso: string) => { const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 2 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago` }
 
-/** Admin: is the AIGOAL calendar connection live or down? (the automatic sync logs every run) */
+type SyncRow = { ran_at: string; ok: boolean; error: string | null; onboarding: number | null; bookings: number | null; token_expires_at: string | null }
+const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' })
+const mins = (ms: number) => { const m = Math.max(0, Math.round(ms / 60000)); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min` }
+
+/** Admin: is the AIGOAL calendar connection live or down, what it covers, and when the token must be renewed */
 function SyncStatus() {
-  const [last, setLast] = useState<{ ran_at: string; ok: boolean; error: string | null } | null | undefined>(undefined)
+  const [rows, setRows] = useState<SyncRow[] | undefined>(undefined)
   const [open, setOpen] = useState(false)
-  const reload = () => supabase.from('sync_log').select('ran_at, ok, error').order('ran_at', { ascending: false }).limit(1).then(({ data }) => setLast(data?.[0] ?? null))
+  const reload = () => supabase.from('sync_log').select('ran_at, ok, error, onboarding, bookings, token_expires_at').order('ran_at', { ascending: false }).limit(30).then(({ data }) => setRows((data ?? []) as SyncRow[]))
   useEffect(() => { reload() }, [])
-  if (last === undefined) return null
+  if (rows === undefined) return null
+  const last = rows[0]
+  const lastOk = rows.find((r) => r.ok)
   const stale = !!last && Date.now() - new Date(last.ran_at).getTime() > 2 * 3600e3
   const live = !!last && last.ok && !stale
+  const left = lastOk?.token_expires_at ? new Date(lastOk.token_expires_at).getTime() - Date.now() : null
+  const soon = live && left !== null && left < 15 * 60000
   return (
-    <div className={'sync-bar ' + (live ? 'live' : 'down')}>
+    <div className={'sync-bar ' + (live ? (soon ? 'warn' : 'live') : 'down')}>
       {open && <AigoalToken onClose={() => setOpen(false)} onDone={reload} />}
       <span className="sync-dot" />
       <div className="sync-text">
         <b>AIGOAL calendar is {live ? 'live' : 'down'}</b>
-        <span>{live ? `Last synced ${syncAgo(last!.ran_at)} · refreshes every 30 minutes` : !last ? 'The automatic sync has not run yet.' : stale ? `No successful sync for ${syncAgo(last.ran_at).replace(' ago', '')}.` : last.error?.includes('rejected') ? 'The AIGOAL token has expired. Paste a new one to bring it back.' : last.error ?? 'The last sync failed.'}</span>
+        <span>{live ? `Last synced ${syncAgo(last.ran_at)} · runs automatically every 30 minutes` : !last ? 'The automatic sync has not run yet.' : last.error?.includes('rejected') || last.error?.includes('No AIGOAL token') ? 'The AIGOAL token has expired. Paste a new one to bring it back.' : last.error ?? 'The last sync failed.'}</span>
+        <span className="sync-covers"><b>What syncs:</b> Onboarding 1 / 2 / 3 → Purchase Accounts{lastOk?.onboarding != null ? ` (${lastOk.onboarding})` : ''} · DEMO and Consultation bookings → Follow-Up Customers{lastOk?.bookings != null ? ` (${lastOk.bookings})` : ''}. Read only: nothing is written to AIGOAL.</span>
+        <span className={'sync-covers' + (soon || !live ? ' hot' : '')}><b>New token needed:</b> {!live ? 'now.' : left === null ? 'when the sync shows down (a token lasts about an hour).' : left <= 0 ? 'now.' : `${clock(lastOk!.token_expires_at!)} (in ${mins(left)}). Paste a new one before then.`}</span>
       </div>
-      <button className={live ? '' : 'primary'} onClick={() => setOpen(true)}><KeyRound size={15} />{live ? 'Update token' : 'Paste new token'}</button>
+      <button className={live && !soon ? '' : 'primary'} onClick={() => setOpen(true)}><KeyRound size={15} />{live && !soon ? 'Update token' : 'Paste new token'}</button>
     </div>
   )
 }

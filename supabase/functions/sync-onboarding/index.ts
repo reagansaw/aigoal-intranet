@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
     if (!out.has_key && (cron || out.ok || out.error)) {
       const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
       await admin.from('sync_log').insert({ source: cron ? 'schedule' : 'manual', ok: !!out.ok, error: out.error ?? null,
-        onboarding: out.synced ?? null, bookings: out.demos_synced ?? null })
+        onboarding: out.synced ?? null, bookings: out.demos_synced ?? null, token_expires_at: out.token_expires_at ?? null })
     }
   }
   return res

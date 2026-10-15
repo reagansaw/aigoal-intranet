@@ -421,3 +421,8 @@ table.daily .daily-cell { text-align: center; padding: .4rem 0; }
   .modal-body { padding: 1.1rem 1.1rem 1.25rem; }
   .modal-foot { margin: 1.1rem -1.1rem -1.25rem; padding: .8rem 1.1rem calc(.8rem + env(safe-area-inset-bottom)); }
 }
+.sync-covers { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
+.sync-covers b { color: var(--ink-2); }
+.sync-covers.hot, .sync-covers.hot b { color: var(--bad); }
+.sync-bar.warn { border-color: var(--warn); background: var(--warn-soft); }
+.sync-bar.warn .sync-dot { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
