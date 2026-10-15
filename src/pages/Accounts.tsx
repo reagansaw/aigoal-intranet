@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeCheck, Bell, MessageCircle, CalendarClock, Check, Eye, Hammer, History, Lock, MessageSquare, Pencil, Plus, Receipt, Save, Trash2, Undo2, UserCog, Video, Wrench } from 'lucide-react'
+import { BadgeCheck, Bell, Mic, MessageCircle, CalendarClock, Check, Eye, Hammer, History, Lock, MessageSquare, Pencil, Plus, Receipt, Save, Trash2, Undo2, UserCog, Video, Wrench } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useStaff } from '../lib/useStaff'
@@ -8,6 +8,7 @@ import { applyOwner, ownerOptions, ownerValue } from '../lib/owners'
 import { buildPipeline, dayTime, type StageKey } from '../lib/pipeline'
 import { ago } from '../lib/audit'
 import Modal from '../components/Modal'
+import VoiceUpdate from '../components/VoiceUpdate'
 import AuditTrail from '../components/AuditTrail'
 import AccountNotes from '../components/AccountNotes'
 import { PipelineDots, Stepper } from '../components/Pipeline'
@@ -40,6 +41,7 @@ export default function Accounts() {
   const [remindNote, setRemindNote] = useState('')
   const [remindFor, setRemindFor] = useState<{ id: string; pid: string; name: string } | null>(null)
   const [remindText, setRemindText] = useState('')
+  const [voice, setVoice] = useState(false)
   const remindWhat = (id: string) => { const n = (notesBy.get(id) ?? []).find((x) => x.kind === 'reminder' && x.body.startsWith('Reminder sent to')); const i = n ? n.body.indexOf(': ') : -1; return i > 0 ? n!.body.slice(i + 2) : '' }
   const [bump, setBump] = useState(0)
   const me = profile!.id
@@ -131,6 +133,7 @@ export default function Accounts() {
   return (
     <>
       <PageHeader title="Purchase Accounts" sub="Every customer who bought AIGOAL and where they are in the onboarding flow. Only the AI Builder of an account can edit it.">
+        <button onClick={() => setVoice(true)}><Mic size={16} />Voice update</button>
         {isAdmin && <button className="primary" onClick={() => open({ ...blank })}><Plus size={16} />Add account</button>}
       </PageHeader>
 
@@ -332,6 +335,7 @@ export default function Accounts() {
         </Modal>
       )}
 
+      {voice && <VoiceUpdate page="account" onClose={() => setVoice(false)} onDone={load} />}
       {remindFor && (
         <Modal title={`Remind ${remindFor.name}`} onClose={() => setRemindFor(null)}>
           <p className="muted" style={{ marginTop: 0 }}>This account becomes “Pending {remindFor.name}” and shows on their dashboard. Say what you need from them.</p>

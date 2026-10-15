@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { UserCheck, Package, BadgeCheck, CalendarSync, ClipboardList, Video, Flame, History, Hourglass, Lock, MessageCircle, MessageSquare, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, UserRound, Users } from 'lucide-react'
+import { Mic, UserCheck, Package, BadgeCheck, CalendarSync, ClipboardList, Video, Flame, History, Hourglass, Lock, MessageCircle, MessageSquare, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, UserRound, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { today } from '../lib/util'
 import { useProducts } from '../lib/products'
 import ProductsManager from '../components/ProductsManager'
+import VoiceUpdate from '../components/VoiceUpdate'
 import AssignLeads from '../components/AssignLeads'
 import BookingPicker from '../components/BookingPicker'
 import { ago } from '../lib/audit'
@@ -53,6 +54,7 @@ export default function Customers() {
   const { products, reload: reloadProducts } = useProducts()
   const [prodOpen, setProdOpen] = useState(false)
   const [sel, setSel] = useState<string[]>([])
+  const [voice, setVoice] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [book, setBook] = useState<{ id: string; name: string; kind: 'demo' | 'consultation' } | null>(null)
   const productPrice = (n: string | null | undefined) => products.find((p) => p.name === n)?.price ?? null
@@ -177,6 +179,7 @@ export default function Customers() {
   return (
     <>
       <PageHeader title={isAdmin ? 'Follow-Up Customers' : 'My Follow-Up Customers'} sub={isAdmin ? 'Main list. Each sales person only sees the leads assigned to them.' : 'Leads assigned to you.'}>
+        <button onClick={() => setVoice(true)}><Mic size={16} />Voice update</button>
         {isAdmin && <CsvImport onRows={importRows} />}
         {isAdmin && <button onClick={() => { if (!sel.length) setSel(shown.filter((r) => !r.owner_id && !r.owner_name).map((r) => r.id)); setAssignOpen(true) }}><UserCheck size={16} />Assign leads</button>}
         {isAdmin && <button onClick={() => setProdOpen(true)}><Package size={16} />Products</button>}
@@ -357,6 +360,7 @@ export default function Customers() {
         </Modal>
       )}
 
+      {voice && <VoiceUpdate page="customer" onClose={() => setVoice(false)} onDone={load} />}
       {assignOpen && <AssignLeads leads={rows.filter((r) => sel.includes(r.id))} sales={staff.filter((x) => x.is_sales)} onClose={() => { setAssignOpen(false) }} onDone={() => { setSel([]); load() }} />}
       {book && <BookingPicker customer={book} kind={book.kind} onClose={() => setBook(null)} onDone={load} />}
       {prodOpen && <ProductsManager products={products} onClose={() => setProdOpen(false)} onChanged={reloadProducts} />}
