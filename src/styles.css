@@ -451,3 +451,4 @@ tr.picked td { background: var(--brand-soft); }
 .funnel-n { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
 .funnel-row small { display: block; margin-top: .3rem; }
 .funnel-status { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+.todo-form { margin-bottom: 1rem; padding: .9rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }

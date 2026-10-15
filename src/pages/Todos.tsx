@@ -26,7 +26,6 @@ export default function Todos() {
   const [dueDate, setDueDate] = useState('')
   const [amount, setAmount] = useState<number | null>(null)
   const [unit, setUnit] = useState('min')
-  const [more, setMore] = useState(false)
   const [err, setErr] = useState('')
 
   const load = async () => {
@@ -114,25 +113,20 @@ export default function Todos() {
 
         {view === 'day' && (
           <>
-            <form onSubmit={add} style={{ marginBottom: '.75rem' }}>
-              <div className="row" style={{ flexWrap: 'nowrap' }}>
-                <input style={{ flex: 1, minWidth: 0 }} placeholder="Add a task for this day…" value={title} onChange={(e) => setTitle(e.target.value)} />
-                <Select value={priority} onChange={setPriority} options={PRIORITIES} />
-                <button className="primary"><Plus size={16} />Add</button>
+            <form onSubmit={add} className="todo-form">
+              <div className="field"><label>Task</label><input placeholder="What needs to be done?" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+              <div className="form-grid">
+                <div className="field"><label>Due date</label><DatePicker value={dueDate || day} clearable={false} onChange={setDueDate} /></div>
+                <div className="field"><label>Time needed to complete</label>
+                  <div className="row" style={{ flexWrap: 'nowrap' }}><div style={{ flex: 1 }}><NumberInput value={amount} onChange={setAmount} placeholder="e.g. 30" /></div><Select value={unit} onChange={setUnit} options={UNITS} /></div></div>
+                <div className="field"><label>Priority</label><Select block value={priority} onChange={setPriority} options={PRIORITIES} /></div>
               </div>
-              <button type="button" className="ghost sm" style={{ marginTop: '.4rem' }} onClick={() => setMore(!more)}>{more ? 'Hide details' : 'Add remarks, due date, time needed'}</button>
-              {(more || notes || dueDate || amount) && (
-                <div className="form-grid" style={{ marginTop: '.4rem' }}>
-                  <div className="field"><label>Due date</label><DatePicker value={dueDate || day} clearable={false} onChange={setDueDate} /></div>
-                  <div className="field"><label>Time needed to complete</label>
-                    <div className="row" style={{ flexWrap: 'nowrap' }}><div style={{ flex: 1 }}><NumberInput value={amount} onChange={setAmount} placeholder="e.g. 30" /></div><Select value={unit} onChange={setUnit} options={UNITS} /></div></div>
-                  <div className="field" style={{ gridColumn: '1 / -1' }}><label>Remarks</label><textarea style={{ minHeight: 60 }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Details, links, what done looks like…" /></div>
-                </div>
-              )}
+              <div className="field"><label>Remarks</label><textarea style={{ minHeight: 60 }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Details, links, what done looks like…" /></div>
+              <button className="primary" disabled={!title.trim()}><Plus size={16} />Add task</button>
             </form>
             <Alert text={err} />
             {todos.map(item)}
-            {!todos.length && <Empty icon={ListChecks} title="No tasks for this day">Type above and press Enter to add one.</Empty>}
+            {!todos.length && <Empty icon={ListChecks} title="No tasks for this day">Fill in the form above and click Add task.</Empty>}
           </>
         )}
 
