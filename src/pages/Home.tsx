@@ -78,6 +78,69 @@ function SyncStatus() {
 
 const hello = () => { const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kuala_Lumpur' })); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening' }
 
+/** Admin: one card per person (Admin accounts left out), tick who to show. */
+function TeamStatus({ team, hidden, setHidden }: { team: StaffRow[]; hidden: string[]; setHidden: (v: string[]) => void }) {
+  const shown = team.filter((s) => !hidden.includes(s.id))
+  // last 7 days of to-dos for the little graph on each card
+  const [week, setWeek] = useState<Record<string, { done: number; total: number }[]>>({})
+  useEffect(() => {
+    const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - 6 + i); return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }) })
+    supabase.from('todos').select('user_id, due_date, done').gte('due_date', days[0]).lte('due_date', days[6]).limit(5000).then(({ data }) => {
+      const m: Record<string, { done: number; total: number }[]> = {}
+      ;(data ?? []).forEach((t: any) => { const i = days.indexOf(t.due_date); if (i < 0) return; const a = (m[t.user_id] ||= days.map(() => ({ done: 0, total: 0 }))); a[i].total++; if (t.done) a[i].done++ })
+      setWeek(m)
+    })
+  }, [])
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h2><Users size={17} className="i" />Team status</h2>
+        <div className="chips">
+          {team.map((s) => { const on = !hidden.includes(s.id); return (
+            <button key={s.id} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} title={on ? 'Click to hide' : 'Click to show'} onClick={() => setHidden(on ? [...hidden, s.id] : hidden.filter((x) => x !== s.id))}>{on && <Check size={13} />}{(s.name || '').split(' ')[0]}</button>
+          ) })}
+        </div>
+      </div>
+      {!shown.length && <Empty icon={Users} title="Nobody selected">Tick a name above to show them.</Empty>}
+      <div className="team-grid">
+        {shown.map((s) => {
+          const online = ago(s.last_seen_at) === 'Online now'
+          const pct = s.todos_today ? Math.round((s.todos_done / s.todos_today) * 100) : 0
+          return (
+            <div key={s.id} className="team-card">
+              <div className="team-head">
+                <div className="avatar-wrap"><div className="avatar">{initials(s.name)}</div><i className={'presence' + (online ? ' on' : '')} /></div>
+                <div style={{ minWidth: 0, flex: 1 }}><div className="cell-title">{s.name}</div><div className="muted sm-text">{s.title || s.role}</div></div>
+                {s.must_change_password ? <span className="tag">Not signed in yet</span> : s.away_today === 'leave' ? <span className="tag warn">On leave</span> : s.away_today === 'travel' ? <span className="tag brand">Travelling</span> : <span className={'sm-text ' + (online ? 'ok' : 'muted')}>{online ? 'Online' : ago(s.last_seen_at)}</span>}
+              </div>
+              <div className="team-block">
+                <div className="team-label"><span>To-do today</span><b>{s.todos_done}/{s.todos_today}</b></div>
+                <div className="bar"><i style={{ width: `${pct}%` }} /></div>
+                {(s.todos_overdue > 0 || s.todos_unscheduled > 0 || s.meeting_overdue > 0) && <div className="row" style={{ gap: '.3rem', marginTop: '.4rem' }}>
+                  {s.todos_overdue > 0 && <span className="tag warn">{s.todos_overdue} overdue</span>}
+                  {s.todos_unscheduled > 0 && <span className="tag">{s.todos_unscheduled} to schedule</span>}
+                  {s.meeting_overdue > 0 && <span className="tag warn">{s.meeting_overdue} meeting actions late</span>}
+                </div>}
+              </div>
+              {(() => { const w = week[s.id]; const tot = w?.reduce((a, d) => a + d.total, 0) ?? 0; const dn = w?.reduce((a, d) => a + d.done, 0) ?? 0; return (
+                <div className="team-block">
+                  <div className="team-label"><span>Last 7 days</span><b>{tot ? `${dn}/${tot} done · ${Math.round((dn / tot) * 100)}%` : 'No tasks'}</b></div>
+                  <div className="spark" aria-hidden>{(w ?? Array.from({ length: 7 }, () => ({ done: 0, total: 0 }))).map((d, i) => <i key={i} className={d.total ? 'some' : ''} title={`${d.done}/${d.total}`}><b style={{ height: d.total ? `${Math.max(12, (d.done / d.total) * 100)}%` : 0, opacity: d.done ? 1 : 0 }} /></i>)}</div>
+                </div>) })()}
+              <div className="team-split">
+                <Link to="/accounts" className="team-metric"><small>Accounts</small><b>{s.accounts}</b>
+                  <span className="row" style={{ gap: '.3rem' }}>{s.accounts_waiting_on > 0 && <span className="tag warn">{s.accounts_waiting_on} waiting</span>}{s.open_issues > 0 && <span className="tag warn">{s.open_issues} issues</span>}</span></Link>
+                <Link to="/customers" className="team-metric"><small>Leads</small><b>{s.leads}</b>
+                  <span className="row" style={{ gap: '.3rem' }}>{s.leads_pending_mgmt > 0 && <span className="tag warn">{s.leads_pending_mgmt} mgmt</span>}{s.leads_pending_demo > 0 && <span className="tag brand">{s.leads_pending_demo} demo</span>}{s.leads_invite_webinar > 0 && <span className="tag good">{s.leads_invite_webinar} invite</span>}</span></Link>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function Attention({ items }: { items: Item[] }) {
   const rank = { red: 0, orange: 1, yellow: 2, '': 3, gray: 4 }
   const shown = items.filter((i) => i.n > 0).sort((x, y) => rank[x.tone] - rank[y.tone] || y.n - x.n)
@@ -229,55 +292,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="card flush table-wrap">
-            <div className="card-head" style={{ padding: '1rem 1.25rem 0' }}><h2><Users size={17} className="i" />Team status</h2><span className="muted sm-text">Today, {dayLabel(today())}</span></div>
-            <div className="chips" style={{ padding: '.7rem 1.25rem 0' }}>
-              <span className="muted sm-text" style={{ alignSelf: 'center' }}>Show:</span>
-              {team.map((s) => { const on = !hidden.includes(s.id); return (
-                <button key={s.id} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} onClick={() => setHidden(on ? [...hidden, s.id] : hidden.filter((x) => x !== s.id))}>{on && <Check size={13} />}{(s.name || '').split(' ')[0]}</button>
-              ) })}
-            </div>
-            <table>
-              <thead><tr><th>Person</th><th>To-do</th><th>Accounts</th><th>Leads</th><th>Last seen</th></tr></thead>
-              <tbody>
-                {team.filter((s) => !hidden.includes(s.id)).map((s) => (
-                  <tr key={s.id}>
-                    <td style={{ minWidth: 180 }}>
-                      <div className="row" style={{ flexWrap: 'nowrap', gap: '.6rem' }}>
-                        <div className="avatar">{initials(s.name)}</div>
-                        <div><div className="cell-title">{s.name}</div><div className="muted sm-text">{s.title || s.role}</div></div>
-                      </div>
-                    </td>
-                    <td style={{ minWidth: 160 }}>
-                      <div className="sm-text">{s.todos_done}/{s.todos_today} done today</div>
-                      <div className="bar" style={{ margin: '.2rem 0' }}><i style={{ width: s.todos_today ? `${(s.todos_done / s.todos_today) * 100}%` : 0 }} /></div>
-                      <div className="row" style={{ gap: '.3rem' }}>
-                        {s.todos_overdue > 0 && <span className="tag warn">{s.todos_overdue} overdue</span>}
-                        {s.todos_unscheduled > 0 && <span className="tag">{s.todos_unscheduled} to schedule</span>}
-                        {s.meeting_overdue > 0 && <span className="tag warn">{s.meeting_overdue} meeting actions late</span>}
-                      </div>
-                    </td>
-                    <td style={{ minWidth: 150 }}>
-                      <b>{s.accounts}</b> <span className="muted sm-text">owned</span>
-                      <div className="row" style={{ gap: '.3rem', marginTop: 2 }}>
-                        {s.accounts_waiting_on > 0 && <span className="tag warn">{s.accounts_waiting_on} waiting on them</span>}
-                        {s.open_issues > 0 && <span className="tag warn">{s.open_issues} issues</span>}
-                      </div>
-                    </td>
-                    <td style={{ minWidth: 170 }}>
-                      <b>{s.leads}</b> <span className="muted sm-text">leads</span>
-                      <div className="row" style={{ gap: '.3rem', marginTop: 2 }}>
-                        {s.leads_pending_mgmt > 0 && <span className="tag warn">{s.leads_pending_mgmt} mgmt</span>}
-                        {s.leads_pending_demo > 0 && <span className="tag brand">{s.leads_pending_demo} demo</span>}
-                        {s.leads_invite_webinar > 0 && <span className="tag good">{s.leads_invite_webinar} invite</span>}
-                      </div>
-                    </td>
-                    <td className="nowrap"><span className={ago(s.last_seen_at) === 'Online now' ? 'ok' : 'muted'}>{ago(s.last_seen_at)}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TeamStatus team={team} hidden={hidden} setHidden={setHidden} />
         </>
       )}
 
