@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Plus, Trash2 } from 'lucide-react'
+import { ArrowRight, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { addDays, addMonths, dayLabel, monthLabel, monthStart, today } from '../lib/util'
-import { Alert, Empty, PageHeader, Select } from '../components/ui'
+import { Alert, DatePicker, Empty, PageHeader, Select } from '../components/ui'
 import type { Todo } from '../lib/types'
 
 const PRIORITIES = [{ value: 'low', label: 'Low' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'High' }]
@@ -17,6 +17,7 @@ export default function Todos() {
   const [day, setDay] = useState(today())
   const [month, setMonth] = useState(monthStart(new Date()))
   const [todos, setTodos] = useState<Todo[]>([])
+  const [inbox, setInbox] = useState<Todo[]>([])
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState('normal')
   const [err, setErr] = useState('')
@@ -25,6 +26,8 @@ export default function Todos() {
     const [from, to] = view === 'day' ? [day, day] : [month, addDays(addMonths(month, 1), -1)]
     const { data } = await supabase.from('todos').select('*').eq('user_id', uid).gte('due_date', from).lte('due_date', to).order('due_date').order('created_at')
     setTodos((data ?? []) as Todo[])
+    const { data: unsched } = await supabase.from('todos').select('*').eq('user_id', uid).is('due_date', null).eq('done', false).order('deadline', { nullsFirst: false }).order('created_at')
+    setInbox((unsched ?? []) as Todo[])
   }
   useEffect(() => { load() }, [uid, view, day, month])
 
@@ -40,17 +43,19 @@ export default function Todos() {
     load()
   }
   const del = async (t: Todo) => { await supabase.from('todos').delete().eq('id', t.id); load() }
-  const moveTomorrow = async (t: Todo) => { await supabase.from('todos').update({ due_date: addDays(t.due_date, 1) }).eq('id', t.id); load() }
+  const moveTomorrow = async (t: Todo) => { if (t.due_date) { await supabase.from('todos').update({ due_date: addDays(t.due_date, 1) }).eq('id', t.id); load() } }
+  const schedule = async (t: Todo, d: string) => { if (d) { await supabase.from('todos').update({ due_date: d }).eq('id', t.id); load() } }
   const step = (n: number) => (view === 'day' ? setDay(addDays(day, n)) : setMonth(addMonths(month, n)))
 
-  const byDay = todos.reduce<Record<string, Todo[]>>((m, t) => ((m[t.due_date] ||= []).push(t), m), {})
+  const byDay = todos.reduce<Record<string, Todo[]>>((m, t) => ((m[t.due_date ?? ""] ||= []).push(t), m), {})
   const done = todos.filter((t) => t.done).length
   const pct = todos.length ? Math.round((done / todos.length) * 100) : 0
 
   const item = (t: Todo) => (
     <div key={t.id} className={'todo' + (t.done ? ' done' : '')}>
       <input type="checkbox" checked={t.done} onChange={() => toggle(t)} aria-label="Done" />
-      <span className="t">{t.title}</span>
+      <span className="t">{t.title}{t.source && <div className="src">{t.source}</div>}</span>
+      {t.deadline && <span className={'tag' + (!t.done && t.deadline < today() ? ' warn' : '')}>Due {dayLabel(t.deadline)}</span>}
       {t.priority === 'high' && <span className="tag warn">High</span>}
       {t.priority === 'low' && <span className="tag">Low</span>}
       <span className="acts">
@@ -77,6 +82,20 @@ export default function Todos() {
           <button onClick={() => { setDay(today()); setMonth(monthStart(new Date())) }}>Today</button>
         </div>
       </div>
+
+      {inbox.length > 0 && (
+        <div className="card inbox">
+          <div className="card-head"><h2><CalendarClock size={17} className="i" />To schedule ({inbox.length})</h2><span className="muted sm-text">Pick the day you will do each task</span></div>
+          {inbox.map((t) => (
+            <div key={t.id} className="todo">
+              <span className="t">{t.title}{t.source && <div className="src">{t.source}</div>}</span>
+              {t.deadline && <span className={'tag' + (t.deadline < today() ? ' warn' : '')}>Deadline {dayLabel(t.deadline)}</span>}
+              <div style={{ width: 190 }}><DatePicker value="" placeholder="Choose day" clearable={false} onChange={(d) => schedule(t, d)} /></div>
+              <button className="ghost icon sm danger" title="Delete" aria-label="Delete" onClick={() => del(t)}><Trash2 size={15} /></button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="card">
         <div className="row between" style={{ marginBottom: '.5rem' }}>

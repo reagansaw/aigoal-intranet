@@ -20,9 +20,33 @@ export interface Todo {
   user_id: string
   title: string
   notes: string | null
-  due_date: string
+  due_date: string | null
   priority: 'low' | 'normal' | 'high'
   done: boolean
+  deadline: string | null
+  source: string | null
+  meeting_task_id: string | null
+}
+
+export interface Meeting {
+  id: string
+  title: string
+  meeting_date: string
+  minute_taker_id: string | null
+  attendee_ids: string[]
+  discussion: string | null
+  created_by: string | null
+}
+
+export interface MeetingTask {
+  id: string
+  meeting_id: string
+  sort: number
+  title: string
+  assignee_id: string | null
+  deadline: string | null
+  status: 'open' | 'done'
+  todo_id: string | null
 }
 
 export interface Band { threshold: number; points: number }

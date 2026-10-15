@@ -241,3 +241,17 @@ td .sel-btn { padding: .35rem .5rem; font-size: .88rem; min-width: 110px; }
 .pager { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .7rem 1.25rem; border-top: 1px solid var(--line); }
 .pager-nav { display: flex; align-items: center; gap: .25rem; }
 .pager .sel-btn { min-width: 76px; padding: .3rem .55rem; font-size: .85rem; }
+
+.modal.wide { max-width: 960px; }
+/* ───── meetings ───── */
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip { border-radius: 99px; padding: .28rem .8rem; font-size: .85rem; font-weight: 550; background: var(--surface); }
+.chip.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+.chip:disabled { opacity: 1; cursor: default; }
+.mtask { display: grid; grid-template-columns: 22px minmax(180px, 1fr) 190px 190px auto; gap: .5rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--line); }
+.mtask:last-child { border-bottom: 0; }
+.mtask.done .mt-title input { text-decoration: line-through; color: var(--muted); }
+.mt-acts { display: flex; gap: .3rem; align-items: center; justify-content: flex-end; }
+@media (max-width: 860px) { .mtask { grid-template-columns: 22px 1fr; } .mtask > :nth-child(n+3) { grid-column: 2; } .mt-acts { justify-content: flex-start; } }
+.inbox { border-left: 3px solid var(--brand); }
+.todo .src { font-size: .78rem; color: var(--muted); }

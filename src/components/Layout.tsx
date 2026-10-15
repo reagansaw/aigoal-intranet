@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart3, BookOpen, ListChecks, LayoutDashboard, LogOut, Menu, PhoneCall, ReceiptText, ScrollText, SlidersHorizontal, Sparkles, UserRound, Users } from 'lucide-react'
+import { BarChart3, BookOpen, ListChecks, LayoutDashboard, LogOut, Menu, NotebookPen, PhoneCall, ReceiptText, ScrollText, SlidersHorizontal, Sparkles, UserRound, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { initials } from './ui'
 
@@ -24,6 +24,7 @@ export default function Layout() {
         {link('/', 'Home', LayoutDashboard)}
         {link('/todos', 'To-Do', ListChecks)}
         {link('/kpi', 'PDR / KPI', BarChart3)}
+        {link('/meetings', 'Meeting Minutes', NotebookPen)}
         {link('/accounts', 'Purchase Accounts', ReceiptText)}
         {link('/customers', 'Follow-Up Customers', PhoneCall)}
         {link('/kb', 'Knowledge Base', BookOpen)}
