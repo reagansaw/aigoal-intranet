@@ -4,7 +4,7 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
 
 ## One-time setup
 
-1. **Database** – Supabase dashboard → SQL Editor → run `supabase/migrations/001_init.sql`, then `002_accounts_and_lead_owners.sql`.
+1. **Database** – Supabase dashboard → SQL Editor → run `supabase/migrations/001_init.sql`, then `002_…` and `003_force_password_change.sql` in order.
    (Seeds the Sales KPI template from the Winson sheet and the Useful Link / Onboarding knowledge base.)
 2. **Auth** – Authentication → Providers → Email: keep enabled, turn **off** "Allow new users to sign up"
    (accounts are created by Admin/HR inside the app).
@@ -14,6 +14,11 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
    `update public.profiles set role = 'admin', full_name = 'Your Name' where email = 'you@aigoal.ai';`
 5. **Env** – `cp .env.example .env`, paste the project's *anon public* key into `VITE_SUPABASE_ANON_KEY`.
 6. `npm install && npm run dev` (build: `npm run build`, output in `dist/`; uses hash routing so any static host works).
+
+## Passwords
+
+New users, and anyone whose password Admin/HR resets, must choose their own password at their next login before they can
+use the app. Admin/HR hand out a temporary password in People; the user replaces it on first sign-in.
 
 ## Roles
 

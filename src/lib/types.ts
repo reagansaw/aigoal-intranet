@@ -12,6 +12,7 @@ export interface Profile {
   end_date: string | null
   role: Role
   active: boolean
+  must_change_password: boolean
 }
 
 export interface Todo {

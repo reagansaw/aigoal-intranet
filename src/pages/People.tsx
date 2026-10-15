@@ -85,7 +85,7 @@ export default function People() {
             <div className="form-grid">
               {fld('Name', <input required value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} />)}
               {fld('Email', <input type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />)}
-              {fld('Initial password (min 8)', <input required minLength={8} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />)}
+              {fld('Temporary password (min 8)', <input required minLength={8} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />)}
               {fld('Phone', <input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />)}
               {fld('Title', <input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />)}
               {fld('Gender', <Select block value={f.gender} onChange={(v) => setF({ ...f, gender: v })} options={GENDER} />)}
@@ -95,6 +95,7 @@ export default function People() {
               {fld('End date', <DatePicker value={f.end_date} onChange={(v) => setF({ ...f, end_date: v })} />)}
             </div>
             <Alert text={err} />
+            <p className="muted sm-text">They will be asked to set their own password the first time they sign in.</p>
             <div className="modal-foot"><button className="primary"><Plus size={16} />Create account</button></div>
           </form>
         </Modal>
@@ -119,6 +120,7 @@ export default function People() {
           </form>
           <hr />
           <label>Reset password</label>
+          <p className="muted sm-text" style={{ margin: '0 0 .6rem' }}>Give them this temporary password. At their next login they must choose a new one.</p>
           <div className="row">
             <input style={{ maxWidth: 260 }} placeholder="New password (min 8)" value={pw} onChange={(e) => setPw(e.target.value)} />
             <button type="button" onClick={reset} disabled={pw.length < 8}><KeyRound size={16} />Reset</button>

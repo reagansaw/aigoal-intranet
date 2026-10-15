@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import ForcePassword from './pages/ForcePassword'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
 import Todos from './pages/Todos'
@@ -30,6 +31,7 @@ export default function App() {
         </div>
       </div>
     )
+  if (profile.must_change_password) return <ForcePassword />
   return (
     <Routes>
       <Route element={<Layout />}>

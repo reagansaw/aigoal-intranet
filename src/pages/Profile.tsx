@@ -22,6 +22,7 @@ export default function Profile() {
     e.preventDefault()
     if (pw.length < 8) return setPwMsg('Use at least 8 characters.')
     const { error } = await supabase.auth.updateUser({ password: pw })
+    if (!error) await supabase.rpc('password_changed')
     setPwMsg(error ? error.message : 'Password updated ✓')
     if (!error) setPw('')
   }

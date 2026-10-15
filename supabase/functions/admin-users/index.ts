@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
       phone: body.phone ?? null, gender: body.gender ?? null,
       employment_type: body.employment_type ?? null,
       start_date: body.start_date || null, end_date: body.end_date || null,
+      must_change_password: true, // they choose their own password at first login
     }).eq('id', data.user.id)
     return json({ id: data.user.id })
   }
@@ -53,6 +54,7 @@ Deno.serve(async (req) => {
     if (me.role === 'hr' && target?.role !== 'staff') return json({ error: 'HR can only reset staff passwords' }, 403)
     const { error } = await admin.auth.admin.updateUserById(body.id, { password: body.password })
     if (error) return json({ error: error.message }, 400)
+    await admin.from('profiles').update({ must_change_password: true }).eq('id', body.id)
     return json({ ok: true })
   }
 
