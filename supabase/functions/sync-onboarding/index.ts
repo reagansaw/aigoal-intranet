@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
-const TENANT = Deno.env.get('AIGOAL_TENANT_ID') ?? '3784de4c-8ea4-4bf8-acf2-31b06b84f938' // AIgoal.ai
+const TENANT = (Deno.env.get('AIGOAL_TENANT') || Deno.env.get('AIGOAL_TENANT_ID')) ?? '3784de4c-8ea4-4bf8-acf2-31b06b84f938' // AIgoal.ai
 
 const digits = (v: unknown) => { const d = String(v ?? '').replace(/\D/g, ''); return d.startsWith('0') ? '6' + d : d }
 const mail = (v: unknown) => String(v ?? '').trim().toLowerCase()
@@ -31,8 +31,8 @@ async function handle(req: Request, cron: boolean): Promise<Response> {
   }
 
   const body = await req.json().catch(() => ({}))
-  if (body.check) return json({ has_key: !!Deno.env.get('AIGOAL_API_TOKEN') })   // lets the app hide the token box when a permanent key is stored
-  const token = (body.token ?? Deno.env.get('AIGOAL_API_TOKEN') ?? '').trim()
+  if (body.check) return json({ has_key: !!(Deno.env.get('AIGOAL_TOKEN') || Deno.env.get('AIGOAL_API_TOKEN')) })   // lets the app hide the token box when a permanent key is stored
+  const token = (body.token ?? (Deno.env.get('AIGOAL_TOKEN') || Deno.env.get('AIGOAL_API_TOKEN')) ?? '').trim()
   if (!token) return json({ error: cron ? 'No permanent AIGOAL key is stored yet (set the AIGOAL_API_TOKEN secret)' : 'Paste an AIGOAL API token first' }, 400)
 
   const from = body.from ?? '2026-01-01'
