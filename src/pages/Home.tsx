@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { loadUserPayouts } from '../lib/kpiLoad'
 import { buildPipeline, dayTime } from '../lib/pipeline'
 import { dayLabel, money, monthLabel, monthStart, today } from '../lib/util'
+import AigoalToken from '../components/AigoalToken'
 import { Empty, initials, PageHeader, Stat } from '../components/ui'
 import type { KbArticle, OnboardingSession, PurchaseAccount, Todo } from '../lib/types'
 
@@ -40,13 +41,17 @@ const ago = (iso: string | null) => {
 function SyncStatus() {
   const [last, setLast] = useState<{ ran_at: string; ok: boolean; error: string | null } | null | undefined>(undefined)
   useEffect(() => { supabase.from('sync_log').select('ran_at, ok, error').order('ran_at', { ascending: false }).limit(1).then(({ data }) => setLast(data?.[0] ?? null)) }, [])
+  const [open, setOpen] = useState(false)
+  const reload = () => supabase.from('sync_log').select('ran_at, ok, error').order('ran_at', { ascending: false }).limit(1).then(({ data }) => setLast(data?.[0] ?? null))
   if (last === undefined) return null
   const stale = !!last && Date.now() - new Date(last.ran_at).getTime() > 2 * 3600e3
   const live = !!last && last.ok && !stale
   return (
     <div className={'alert' + (live ? ' ok' : '')} style={{ marginBottom: '1rem', alignItems: 'center' }}>
+      {open && <AigoalToken onClose={() => setOpen(false)} onDone={reload} />}
       <b>AIGOAL calendar: {live ? 'Live' : 'Down'}</b>
-      <span>{live ? `last synced ${ago(last!.ran_at)}` : !last ? 'the automatic sync has not run yet.' : stale ? `no sync for ${ago(last.ran_at).replace(' ago', '')}.` : last.error ?? 'last sync failed.'}</span>
+      <span style={{ flex: 1 }}>{live ? `last synced ${ago(last!.ran_at)}` : !last ? 'the automatic sync has not run yet.' : stale ? `no sync for ${ago(last.ran_at).replace(' ago', '')}.` : last.error ?? 'last sync failed.'}</span>
+      <button className="sm" onClick={() => setOpen(true)}><KeyRound size={15} />Update token</button>
     </div>
   )
 }

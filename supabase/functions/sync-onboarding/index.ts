@@ -32,8 +32,15 @@ async function handle(req: Request, cron: boolean): Promise<Response> {
 
   const body = await req.json().catch(() => ({}))
   if (body.check) return json({ has_key: !!(Deno.env.get('AIGOAL_API_TOKEN') || Deno.env.get('AIGOAL_TOKEN')) })   // lets the app hide the token box when a permanent key is stored
-  const token = (body.token ?? (Deno.env.get('AIGOAL_API_TOKEN') || Deno.env.get('AIGOAL_TOKEN')) ?? '').trim()
-  if (!token) return json({ error: cron ? 'No permanent AIGOAL key is stored yet (set the AIGOAL_API_TOKEN secret)' : 'Paste an AIGOAL API token first' }, 400)
+  // Token order: pasted just now > saved from the portal (still valid) > function secret
+  const jwtExp = (t: string) => { try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000 as number } catch { return 0 } }
+  let token = String(body.token ?? '').trim()
+  if (!token) {
+    const { data: saved } = await admin.from('aigoal_token').select('token').eq('id', 1).maybeSingle()
+    if (saved?.token && jwtExp(saved.token) > Date.now() + 60e3) token = saved.token
+  }
+  if (!token) token = (Deno.env.get('AIGOAL_API_TOKEN') || Deno.env.get('AIGOAL_TOKEN') || '').trim()
+  if (!token) return json({ error: cron ? 'No AIGOAL token yet. Paste one in the portal (Admin home).' : 'Paste an AIGOAL API token first' }, 400)
 
   const from = body.from ?? '2026-01-01'
   const to = body.to ?? new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10)
@@ -42,6 +49,7 @@ async function handle(req: Request, cron: boolean): Promise<Response> {
   })
   if (res.status === 401) return json({ error: 'AIGOAL rejected the token (expired?). Get a fresh one and try again.' }, 400)
   if (!res.ok) return json({ error: `AIGOAL returned ${res.status}` }, 502)
+  if (body.token && body.save) await admin.from('aigoal_token').upsert({ id: 1, token, expires_at: jwtExp(token) ? new Date(jwtExp(token)).toISOString() : null, saved_at: new Date().toISOString() })
   const appts: any[] = (await res.json()).appointments ?? []
 
   const { data: accounts } = await admin.from('purchase_accounts').select('id, account_name, phone, email')
@@ -105,6 +113,7 @@ async function handle(req: Request, cron: boolean): Promise<Response> {
   }
 
   return json({ ok: true, appointments_seen: appts.length, onboarding_found: onboarding, synced: rows.length, removed: stale.length, unmatched,
+    token_expires_at: jwtExp(token) ? new Date(jwtExp(token)).toISOString() : null,
     demos_found: demosFound, demos_synced: demoRows.length, demos_unmatched: demoUnmatched, set_pending_demo: toPending.size })
 }
 
