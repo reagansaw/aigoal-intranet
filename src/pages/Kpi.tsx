@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BadgeDollarSign, Banknote, ChevronLeft, ChevronRight, Coins, Lock, LockOpen, Plus, Save, Target, Trash2, TrendingUp, Wallet, X } from 'lucide-react'
+import { Check, BadgeDollarSign, Banknote, ChevronLeft, ChevronRight, Coins, Lock, LockOpen, Plus, Save, Target, Trash2, TrendingUp, Wallet, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
@@ -42,6 +42,7 @@ export default function Kpi() {
   const [checklist, setChecklist] = useState<KpiChecklistRow[]>([])
   const [orders, setOrders] = useState<KpiOrder[]>([])
   const [tplId, setTplId] = useState('')
+  const [todos, setTodos] = useState<{ title: string; due_date: string; done: boolean }[]>([])
   const [msg, setMsg] = useState('')
   const [history, setHistory] = useState<UserPayout[]>([])
 
@@ -71,6 +72,25 @@ export default function Kpi() {
     const m: ScoreMap = {}; ;(sc.data ?? []).forEach((s: KpiScore) => (m[s.item_id] = s)); setScores(m)
     setWeekly((wk.data ?? []) as KpiWeekly[]); setChecklist((cl.data ?? []) as KpiChecklistRow[]); setOrders((od.data ?? []) as KpiOrder[])
   }
+  const loadTodos = async () => {
+    const d = new Date(month + 'T00:00:00')
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toLocaleDateString('en-CA')
+    const { data } = await supabase.from('todos').select('title, due_date, done').eq('user_id', uid).gte('due_date', month).lte('due_date', end).limit(2000)
+    setTodos((data ?? []) as { title: string; due_date: string; done: boolean }[])
+  }
+  useEffect(() => { loadTodos() }, [uid, month])
+  // Daily Task grid is built from the To-Do list: one row per task title, ticked on the days it was completed
+  const dailyRows = useMemo(() => {
+    const m = new Map<string, { label: string; days: boolean[] }>()
+    todos.forEach((t) => {
+      const key = t.title.trim().toLowerCase(); if (!key) return
+      const row = m.get(key) ?? { label: t.title.trim(), days: [] }
+      const day = Number(t.due_date.slice(8, 10)) - 1
+      row.days[day] = !!row.days[day] || t.done
+      m.set(key, row)
+    })
+    return [...m.values()].sort((a, b) => b.days.filter(Boolean).length - a.days.filter(Boolean).length || a.label.localeCompare(b.label))
+  }, [todos])
   const loadHistory = () => loadUserPayouts(uid).then(setHistory)
   useEffect(() => { load() }, [uid, month])
   useEffect(() => { loadHistory() }, [uid])
@@ -160,7 +180,7 @@ export default function Kpi() {
       {review && tpl && payout && (
         <>
           {/* header summary */}
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
             <Stat icon={Banknote} label="固定服务费" value={money(Number(tpl.base_fee), cur)} />
             <Stat icon={Coins} tone="green" label="基础绩效奖金" value={money(payout.baseBonus, cur)} />
             <Stat icon={TrendingUp} tone="orange" label="营销超额奖励" value={money(payout.overBonus, cur)} />
@@ -306,20 +326,19 @@ export default function Kpi() {
 
           {/* G. daily task */}
           <div className="card flush table-wrap">
-            <div className="card-head" style={{ padding: '1rem 1.25rem 0' }}><h2>DAILY TASK</h2></div>
+            <div className="card-head" style={{ padding: '1rem 1.25rem 0' }}><h2>DAILY TASK</h2><span className="muted sm-text">From the To-Do list · ticked when the task is marked done</span></div>
             <table className="daily">
               <thead><tr><th style={{ minWidth: 200 }}>Task</th>{Array.from({ length: daysInMonth }, (_, d) => <th key={d} className="num" style={{ padding: '.5rem .3rem', textAlign: 'center' }}>{d + 1}</th>)}</tr></thead>
               <tbody>
-                {review.daily.map((row, ri) => (
-                  <tr key={ri}>
-                    <td><input disabled={!editable} placeholder={`Task ${ri + 1}`} value={row.label} onChange={(e) => setReview({ ...review, daily: review.daily.map((r, j) => (j === ri ? { ...r, label: e.target.value } : r)) })} /></td>
+                {dailyRows.map((row) => (
+                  <tr key={row.label}>
+                    <td>{row.label}</td>
                     {Array.from({ length: daysInMonth }, (_, d) => (
-                      <td key={d} style={{ textAlign: 'center', padding: '.4rem .3rem' }}>
-                        <input type="checkbox" disabled={!editable} checked={!!row.days[d]} onChange={(e) => setReview({ ...review, daily: review.daily.map((r, j) => (j === ri ? { ...r, days: Array.from({ length: daysInMonth }, (_, k) => (k === d ? e.target.checked : !!r.days[k])) } : r)) })} />
-                      </td>
+                      <td key={d} style={{ textAlign: 'center', padding: '.4rem .3rem' }}>{row.days[d] ? <Check size={14} style={{ color: 'var(--ok)' }} /> : ''}</td>
                     ))}
                   </tr>
                 ))}
+                {dailyRows.length === 0 && <tr><td colSpan={daysInMonth + 1} className="muted">No To-Do tasks in this month yet.</td></tr>}
               </tbody>
             </table>
           </div>

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeCheck, ClipboardList, Flame, History, Hourglass, Lock, MessageCircle, MessageSquare, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, UserRound, Users } from 'lucide-react'
+import { Package, BadgeCheck, CalendarSync, ClipboardList, Video, Flame, History, Hourglass, Lock, MessageCircle, MessageSquare, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, UserRound, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { today } from '../lib/util'
+import { useProducts } from '../lib/products'
+import ProductsManager from '../components/ProductsManager'
 import { ago } from '../lib/audit'
 import Modal from '../components/Modal'
 import CsvImport from '../components/CsvImport'
@@ -12,7 +14,7 @@ import AuditTrail from '../components/AuditTrail'
 import AccountNotes from '../components/AccountNotes'
 import { Alert, DatePicker, Empty, Msg, PageHeader, Pagination, PriorityBadge, SearchBox, Select, Stat, usePaged } from '../components/ui'
 import { applyOwner, ownerOptions, ownerValue } from '../lib/owners'
-import type { Customer } from '../lib/types'
+import type { Customer, DemoBooking } from '../lib/types'
 
 const PRI = [
   { value: 'P1', label: 'P1 · Hot (热单)' }, { value: 'P2', label: 'P2 · Attended, left early' },
@@ -21,17 +23,18 @@ const PRI = [
 const LEAD_STATUS: { value: Exclude<Customer['lead_status'], null>; label: string; tag: string }[] = [
   { value: 'pending_management', label: 'Pending Management', tag: 'warn' },
   { value: 'pending_demo', label: 'Pending Demo', tag: 'brand' },
+  { value: 'pending_consultation', label: 'Pending Consultation', tag: 'brand' },
   { value: 'invite_webinar', label: 'Invite Webinar', tag: '' },
   { value: 'potential', label: 'Potential', tag: 'brand' },
   { value: 'close_deal', label: 'Close Deal', tag: 'good' },
 ]
-// One definition of "purchased" for the tile, the filter and the tag: flagged Won by the app, closed here, or marked bought in the sheets
-const isBought = (r: Pick<Customer, 'purchased' | 'lead_status' | 'closed_date' | 'result'>) =>
-  r.purchased || r.lead_status === 'close_deal' || !!r.closed_date || /成交|bought|purchased/i.test(r.result ?? '')
+// "Purchased" means exactly one thing: the status is Close Deal (tile, filter and tag all use this)
+const isBought = (r: Pick<Customer, 'lead_status'>) => r.lead_status === 'close_deal'
 const TIMES = Array.from({ length: 26 }, (_, i) => { const m = 8 * 60 + i * 30; const h = Math.floor(m / 60), mm = m % 60; return { value: `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`, label: `${h % 12 || 12}:${String(mm).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}` } })
 const timeLabel = (v?: string | null) => TIMES.find((t) => t.value === v)?.label ?? v ?? ''
 const niceDay = (d?: string | null) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : '')
 const nextWednesdays = (n = 5) => { const out: string[] = []; const d = new Date(); d.setHours(12); while (out.length < n) { d.setDate(d.getDate() + 1); if (d.getDay() === 3) out.push(d.toISOString().slice(0, 10)) } return out }
+const todayKL = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' })
 const NEEDS_REASON = ['pending_management', 'potential']
 const statusOf = (v: string | null) => LEAD_STATUS.find((s) => s.value === v)
 const STATUS_OPTS = [{ value: '', label: 'No status' }, ...LEAD_STATUS.map(({ value, label }) => ({ value, label }))]
@@ -39,12 +42,16 @@ const CHANNELS = ['Facebook', 'Instagram', 'WhatsApp', 'Telegram', '小红书', 
 const blank: Partial<Customer> = { priority: 'P4', name: '', channels: [] }
 const pk = (r: Record<string, string>, ...k: string[]) => k.map((x) => r[x]).find((v) => v) || null
 const yes = (v: string | null) => !!v && /^(y|yes|true|f|✓|1)/i.test(v.trim())
-const EDITABLE: (keyof Customer)[] = ['demo_by_id', 'demo_by_name', 'demo_date', 'demo_time', 'webinar_invite_date', 'name', 'phone', 'email', 'industry', 'batch', 'priority', 'owner_id', 'owner_name', 'repeat_from', 'called', 'not_available', 'not_interested_reason',
+const EDITABLE: (keyof Customer)[] = ['webinar_invite_date', 'name', 'phone', 'email', 'industry', 'batch', 'priority', 'owner_id', 'owner_name', 'repeat_from', 'called', 'not_available', 'not_interested_reason',
   'team_size', 'monthly_revenue', 'leads_per_day', 'reply_method', 'missed_leads', 'channels', 'other_courses', 'result', 'prospect', 'lead_status', 'status_remark']
 
 export default function Customers() {
   const { isAdmin, profile } = useAuth()
   const staff = useStaff()
+  const { products, reload: reloadProducts } = useProducts()
+  const [prodOpen, setProdOpen] = useState(false)
+  const productPrice = (n: string | null | undefined) => products.find((p) => p.name === n)?.price ?? null
+  const PRODUCT_OPTS = products.filter((p) => p.active).map((p) => ({ value: p.name, label: p.name, hint: `RM ${p.price}` }))
   const [params] = useSearchParams()
   const [rows, setRows] = useState<Customer[]>([])
   const [q, setQ] = useState('')
@@ -53,8 +60,9 @@ export default function Customers() {
   const [owner, setOwner] = useState(params.get('owner') ?? 'all')
   const [statusF, setStatusF] = useState(params.get('status') ?? 'all')
   const [buy, setBuy] = useState('all')
-  const [ask, setAsk] = useState<{ row: Customer; status: string; remark: string; demoBy: string; demoDate: string; demoTime: string; inviteDate: string } | null>(null)
+  const [ask, setAsk] = useState<{ row: Customer; status: string; remark: string; demoBy: string; demoDate: string; demoTime: string; inviteDate: string; product: string; closeDate: string } | null>(null)
   const [toast, setToast] = useState('')
+  const [demos, setDemos] = useState<DemoBooking[]>([])
   const [edit, setEdit] = useState<Partial<Customer> | null>(null)
   const [tab, setTab] = useState<'details' | 'followup' | 'history'>('details')
   const [err, setErr] = useState('')
@@ -68,6 +76,8 @@ export default function Customers() {
     }
     // a webinar's leads appear the day after it has taken place (21 Oct shows from 22 Oct)
     setRows(all.filter((r) => !r.batch_date || r.batch_date < today()))
+    const { data: d } = await supabase.from('demo_bookings').select('*').order('start_at', { ascending: false })
+    setDemos((d ?? []) as DemoBooking[])
   }
   useEffect(() => { load() }, [])
 
@@ -86,25 +96,28 @@ export default function Customers() {
   const closed = shown.filter(isBought).length
   const statusCount = (v: string) => rows.filter((r) => r.lead_status === v).length
 
+  // demo = the booking made in the AIGOAL calendar (upcoming one first, else the latest)
+  const demoOf = (id: string) => { const l = demos.filter((d) => d.customer_id === id && d.status !== 'cancelled'); return l.find((d) => new Date(d.start_at) >= new Date(Date.now() - 3600e3) && d.status !== 'completed') ?? l[0] }
+  const demoWhen = (d: DemoBooking) => new Date(d.start_at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' })
   const ownerOpts = ownerOptions(staff.filter((x) => x.is_sales || x.role === 'admin'), owners)
   const ownerVal = ownerValue(edit ?? {})
   const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, pri, batch, owner, buy, statusF]))
 
   // ───── status changes (inline in the table) ─────
   const changeStatus = async (row: Customer, v: string) => {
-    if (['pending_management', 'potential', 'pending_demo', 'invite_webinar'].includes(v))
-      return setAsk({ row, status: v, remark: row.lead_status === v ? row.status_remark ?? '' : '', demoBy: row.demo_by_id ?? '', demoDate: row.demo_date ?? '', demoTime: row.demo_time ?? '', inviteDate: row.webinar_invite_date ?? '' })
-    if (v === 'close_deal' && !confirm(`Close this deal? It will be recorded under your login (${profile?.full_name}) today.`)) return
+    if (['pending_management', 'potential', 'invite_webinar'].includes(v))
+      return setAsk({ row, status: v, remark: row.lead_status === v ? row.status_remark ?? '' : '', demoBy: '', demoDate: '', demoTime: '', inviteDate: row.webinar_invite_date ?? '', product: '', closeDate: '' })
+    if (v === 'close_deal') return setAsk({ row, status: v, remark: '', demoBy: '', demoDate: '', demoTime: '', inviteDate: '', product: '', closeDate: todayKL() })
     const { error } = await supabase.from('customers').update({ lead_status: v || null }).eq('id', row.id)
     setToast(error ? error.message : ''); load()
   }
-  const askReady = !!ask && (NEEDS_REASON.includes(ask.status) ? !!ask.remark.trim() : ask.status === 'pending_demo' ? !!(ask.demoBy && ask.demoDate && ask.demoTime) : !!ask.inviteDate)
+  const askReady = !!ask && (ask.status === 'close_deal' ? !!ask.product && !!ask.closeDate : NEEDS_REASON.includes(ask.status) ? !!ask.remark.trim() : !!ask.inviteDate)
   const saveAsk = async () => {
     if (!ask || !askReady) return
     const patch: Record<string, unknown> = { lead_status: ask.status }
     if (NEEDS_REASON.includes(ask.status)) patch.status_remark = ask.remark.trim()
-    if (ask.status === 'pending_demo') Object.assign(patch, { demo_by_id: ask.demoBy, demo_by_name: staff.find((s) => s.id === ask.demoBy)?.full_name ?? null, demo_date: ask.demoDate, demo_time: ask.demoTime })
     if (ask.status === 'invite_webinar') patch.webinar_invite_date = ask.inviteDate
+    if (ask.status === 'close_deal') { patch.deal_product = ask.product; patch.deal_amount = productPrice(ask.product); patch.closed_date = ask.closeDate }
     const { error } = await supabase.from('customers').update(patch).eq('id', ask.row.id)
     if (error) return setToast(error.message)
     setAsk(null); setToast(''); load()
@@ -116,10 +129,10 @@ export default function Customers() {
   const save = async (e?: FormEvent) => {
     e?.preventDefault(); if (!edit) return
     if (edit.lead_status && NEEDS_REASON.includes(edit.lead_status) && !edit.status_remark?.trim()) { setTab('followup'); return setErr(`${statusOf(edit.lead_status)?.label} needs a reason.`) }
-    if (edit.lead_status === 'pending_demo' && !(edit.demo_by_id && edit.demo_date && edit.demo_time)) { setTab('followup'); return setErr('Pending Demo needs who will demo, the date and the time.') }
     if (edit.lead_status === 'invite_webinar' && !edit.webinar_invite_date) { setTab('followup'); return setErr('Invite Webinar needs the webinar date.') }
     const payload: Record<string, unknown> = {}
     EDITABLE.forEach((k) => { payload[k] = (edit as any)[k] ?? null })
+    if (edit.lead_status === 'close_deal') { if (!edit.deal_product) { setTab('followup'); return setErr('Choose the product that was closed.') } payload.deal_product = edit.deal_product; payload.deal_amount = productPrice(edit.deal_product); payload.closed_date = edit.closed_date || todayKL() }
     payload.channels = edit.channels ?? []; payload.called = !!edit.called; payload.not_available = !!edit.not_available; payload.prospect = !!edit.prospect
     const { error } = edit.id ? await supabase.from('customers').update(payload).eq('id', edit.id) : await supabase.from('customers').insert(payload)
     if (error) return setErr(error.message)
@@ -159,6 +172,7 @@ export default function Customers() {
     <>
       <PageHeader title={isAdmin ? 'Follow-Up Customers' : 'My Follow-Up Customers'} sub={isAdmin ? 'Main list. Each sales person only sees the leads assigned to them.' : 'Leads assigned to you.'}>
         {isAdmin && <CsvImport onRows={importRows} />}
+        {isAdmin && <button onClick={() => setProdOpen(true)}><Package size={16} />Products</button>}
         {isAdmin && <button className="primary" onClick={() => open({ ...blank })}><Plus size={16} />Add customer</button>}
       </PageHeader>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
@@ -194,9 +208,9 @@ export default function Customers() {
                   <td onClick={(e) => e.stopPropagation()}>
                     <Select value={r.lead_status ?? ''} onChange={(v) => changeStatus(r, v)} placeholder="Set status" options={STATUS_OPTS} />
                     {r.lead_status && NEEDS_REASON.includes(r.lead_status) && r.status_remark && <div className="muted sm-text clamp2" style={{ maxWidth: 230, marginTop: 3 }} title={r.status_remark}>{r.status_remark}</div>}
-                    {r.lead_status === 'pending_demo' && <div className="muted sm-text" style={{ marginTop: 3 }}>Demo: <b>{r.demo_by_name}</b> · {niceDay(r.demo_date)} {timeLabel(r.demo_time)}</div>}
+                    {(r.lead_status === 'pending_demo' || r.lead_status === 'pending_consultation') && (() => { const d = demoOf(r.id); const k = r.lead_status === 'pending_consultation' ? 'Consultation' : 'Demo'; return <div className="muted sm-text" style={{ marginTop: 3 }}>{d ? <>{k}: <b>{d.staff_name ?? 'TBC'}</b> · {demoWhen(d)}</> : 'Not booked in AIGOAL yet'}</div> })()}
                     {r.lead_status === 'invite_webinar' && <div className="muted sm-text" style={{ marginTop: 3 }}>Invite to <b>{niceDay(r.webinar_invite_date)}</b> webinar</div>}
-                    {r.lead_status === 'close_deal' && <div className="muted sm-text" style={{ marginTop: 3 }}>Closed by <b>{r.closed_by_name}</b>{r.closed_at && ` · ${ago(r.closed_at)}`}</div>}
+                    {r.lead_status === 'close_deal' && <div className="muted sm-text" style={{ marginTop: 3 }}>{r.deal_product && <><b>{r.deal_product}</b> · </>}Closed by <b>{r.closed_by_name}</b>{r.closed_date && ` · ${niceDay(r.closed_date)}`}</div>}
                   </td>
                   <td className="sticky-end"><Pencil size={15} className="i" style={{ color: 'var(--muted)' }} /></td>
                 </tr>
@@ -269,24 +283,30 @@ export default function Customers() {
                         <textarea style={{ minHeight: 70 }} value={edit.status_remark ?? ''} onChange={(e) => set('status_remark', e.target.value)} /></div>
                     )}
                   </div>
-                  {edit.lead_status === 'pending_demo' && (
-                    <div className="form-grid" style={{ marginBottom: '.4rem' }}>
-                      <div className="field"><label>Who will demo? (required)</label><Select block value={edit.demo_by_id ?? ''} placeholder="Choose a person" onChange={(v) => setEdit({ ...edit, demo_by_id: v || null, demo_by_name: staff.find((s) => s.id === v)?.full_name ?? null })} options={staff.map((s) => ({ value: s.id, label: s.full_name || s.email || '' }))} /></div>
-                      <div className="field"><label>Demo date (required)</label><DatePicker value={edit.demo_date} clearable={false} onChange={(v) => set('demo_date', v)} /></div>
-                      <div className="field"><label>Demo time (required)</label><Select block value={edit.demo_time ?? ''} placeholder="Choose a time" onChange={(v) => set('demo_time', v || null)} options={TIMES} /></div>
-                    </div>
-                  )}
+                  {edit.id && (edit.lead_status === 'pending_demo' || edit.lead_status === 'pending_consultation' || demoOf(edit.id)) && (() => { const d = demoOf(edit.id!); return (
+                    <div className="pend none" style={{ marginBottom: '.8rem' }}>
+                      <div>
+                        <b><CalendarSync size={14} className="i" /> {d?.kind === 'consultation' || edit.lead_status === 'pending_consultation' ? 'Consultation' : 'Demo'} booking (from AIGOAL)</b>
+                        {d ? <div className="sm-text" style={{ marginTop: 2 }}><b>{d.staff_name ?? 'Staff TBC'}</b> · {demoWhen(d)} <span className={'tag ' + (d.status === 'completed' ? 'good' : 'brand')} style={{ marginLeft: 6 }}>{d.status === 'completed' ? 'Completed' : 'Booked'}</span></div>
+                          : <div className="muted sm-text">Nothing is booked in AIGOAL for this customer yet. Once booked, it appears here after the calendar sync.</div>}
+                      </div>
+                      {d?.zoom_url && d.status !== 'completed' && <a className="btn" href={d.zoom_url} target="_blank" rel="noreferrer"><Video size={15} />Zoom</a>}
+                    </div>) })()}
                   {edit.lead_status === 'invite_webinar' && (
                     <div className="field"><label>Invite to which webinar? (required)</label>
                       <DatePicker value={edit.webinar_invite_date} clearable={false} onChange={(v) => set('webinar_invite_date', v)} />
                       <div className="chips" style={{ marginTop: '.4rem' }}>{nextWednesdays().map((d) => chip(edit.webinar_invite_date === d, niceDay(d), () => set('webinar_invite_date', d)))}</div></div>
                   )}
                   {edit.lead_status === 'close_deal' && (
-                    <div className="pend none" style={{ background: 'var(--ok-soft)' }}>
-                      <div><b><BadgeCheck size={14} className="i" /> Deal closed</b>
-                        <div className="muted sm-text">{live?.lead_status === 'close_deal'
-                          ? <>Recorded under <b>{live.closed_by_name}</b>{live.closed_at && ` · ${new Date(live.closed_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`}.</>
-                          : <>When you save, it is recorded under your login (<b>{profile?.full_name}</b>) and today's date.</>}</div></div>
+                    <div className="pend none" style={{ background: 'var(--ok-soft)', display: 'block' }}>
+                      <b><BadgeCheck size={14} className="i" /> Deal closed</b>
+                      <div className="muted sm-text" style={{ marginBottom: '.5rem' }}>{live?.lead_status === 'close_deal'
+                        ? <>Recorded under <b>{live.closed_by_name}</b>{live.closed_at && ` · ${new Date(live.closed_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`}.</>
+                        : <>When you save, it is recorded under your login (<b>{profile?.full_name}</b>).</>}</div>
+                      <div className="form-grid">
+                        <div className="field"><label>Product closed (required)</label><Select block value={edit.deal_product ?? ''} onChange={(v) => set('deal_product', v || null)} options={PRODUCT_OPTS} placeholder="Choose product" /></div>
+                        <div className="field"><label>Date closed</label><DatePicker value={edit.closed_date || todayKL()} clearable={false} onChange={(v) => set('closed_date', v)} /></div>
+                      </div>
                     </div>
                   )}
                   <div className="row" style={{ gap: '.5rem', margin: '.2rem 0 .8rem' }}>
@@ -318,24 +338,22 @@ export default function Customers() {
         </Modal>
       )}
 
+      {prodOpen && <ProductsManager products={products} onClose={() => setProdOpen(false)} onChanged={reloadProducts} />}
       {ask && (
         <Modal title={statusOf(ask.status)?.label ?? 'Status'} onClose={() => setAsk(null)}>
           {NEEDS_REASON.includes(ask.status) && (<>
             <p className="muted" style={{ marginTop: 0 }}>{ask.status === 'potential' ? `Why is ${ask.row.name} a potential customer?` : `What is ${ask.row.name} waiting on Management for?`} A reason is required.</p>
             <div className="field"><textarea autoFocus value={ask.remark} onChange={(e) => setAsk({ ...ask, remark: e.target.value })} placeholder={ask.status === 'potential' ? 'e.g. Owner has 20 staff and is keen on a demo next week' : 'e.g. Needs special pricing approval from Management'} /></div>
           </>)}
-          {ask.status === 'pending_demo' && (<>
-            <p className="muted" style={{ marginTop: 0 }}>Who will give {ask.row.name} the demo, and when?</p>
-            <div className="form-grid">
-              <div className="field"><label>Who will demo?</label><Select block value={ask.demoBy} placeholder="Choose a person" onChange={(v) => setAsk({ ...ask, demoBy: v })} options={staff.map((s) => ({ value: s.id, label: s.full_name || s.email || '' }))} /></div>
-              <div className="field"><label>Date</label><DatePicker value={ask.demoDate} clearable={false} onChange={(v) => setAsk({ ...ask, demoDate: v })} /></div>
-              <div className="field"><label>Time</label><Select block value={ask.demoTime} placeholder="Choose a time" onChange={(v) => setAsk({ ...ask, demoTime: v })} options={TIMES} /></div>
-            </div>
-          </>)}
           {ask.status === 'invite_webinar' && (<>
             <p className="muted" style={{ marginTop: 0 }}>Which webinar is {ask.row.name} being invited to?</p>
             <div className="field"><label>Webinar date</label><DatePicker value={ask.inviteDate} clearable={false} onChange={(v) => setAsk({ ...ask, inviteDate: v })} />
               <div className="chips" style={{ marginTop: '.5rem' }}>{nextWednesdays().map((d) => chip(ask.inviteDate === d, niceDay(d), () => setAsk({ ...ask, inviteDate: d })))}</div></div>
+          </>)}
+          {ask.status === 'close_deal' && (<>
+            <p className="muted" style={{ marginTop: 0 }}>Closing {ask.row.name}. It is recorded under your login ({profile?.full_name}).</p>
+            <div className="field"><label>Product closed</label><Select block value={ask.product} onChange={(v) => setAsk({ ...ask, product: v })} options={PRODUCT_OPTS} placeholder="Choose product" /></div>
+            <div className="field"><label>Date closed</label><DatePicker value={ask.closeDate} clearable={false} onChange={(v) => setAsk({ ...ask, closeDate: v })} /></div>
           </>)}
           <div className="modal-foot"><button className="primary" disabled={!askReady} onClick={saveAsk}><Save size={16} />Save status</button></div>
         </Modal>

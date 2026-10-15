@@ -48,8 +48,10 @@ begin
     'accounts_pending_on', (select coalesce(jsonb_agg(to_jsonb(g)), '[]'::jsonb) from (
       select pending_on_name as name, count(*) as n from public.purchase_accounts where pending_on_id is not null group by 1 order by 2 desc) g),
     'upcoming_demos', (select coalesce(jsonb_agg(to_jsonb(d)), '[]'::jsonb) from (
-      select c.name, c.owner_name, c.demo_by_name, c.demo_date, c.demo_time from public.customers c
-       where c.lead_status = 'pending_demo' and c.demo_date >= today order by c.demo_date, c.demo_time limit 8) d),
+      select c.name, c.owner_name, b.kind, b.staff_name as demo_by_name, (b.start_at at time zone 'Asia/Kuala_Lumpur')::date as demo_date,
+             to_char(b.start_at at time zone 'Asia/Kuala_Lumpur', 'HH24:MI') as demo_time
+        from public.demo_bookings b join public.customers c on c.id = b.customer_id
+       where b.status is distinct from 'completed' and b.status is distinct from 'cancelled' and b.start_at >= now() - interval '1 hour' order by b.start_at limit 8) d),
     'upcoming_invites', (select coalesce(jsonb_agg(to_jsonb(i)), '[]'::jsonb) from (
       select c.webinar_invite_date as date, count(*) as n from public.customers c where c.lead_status = 'invite_webinar' and c.webinar_invite_date >= today group by 1 order by 1 limit 6) i),
     'upcoming_onboarding', (select coalesce(jsonb_agg(to_jsonb(u)), '[]'::jsonb) from (

@@ -145,9 +145,13 @@ export interface Customer {
   aigoal_status: string | null
   purchased: boolean
   batch_date: string | null
-  lead_status: 'pending_management' | 'pending_demo' | 'invite_webinar' | 'potential' | 'close_deal' | null
+  lead_status: 'pending_management' | 'pending_demo' | 'pending_consultation' | 'invite_webinar' | 'potential' | 'close_deal' | null
   status_remark: string | null
   closed_by_name: string | null
+  deal_product: string | null
+  deal_amount: number | null
+  aigoal_won_at: string | null
+  aigoal_won_error: string | null
   closed_at: string | null
   demo_by_id: string | null
   demo_by_name: string | null
@@ -261,3 +265,5 @@ export interface KpiWeekly {
 }
 export interface KpiChecklistRow { id: string; review_id: string; sort: number; item: string; requirement: string | null; status: '完成' | '未完成' | '不适用' | null; evidence: string | null }
 export interface KpiOrder { id: string; review_id: string; sort: number; customer_ref: string | null; source_webinar: string | null; first_payment_date: string | null; net_received: number; is_commission_order: boolean }
+
+export interface DemoBooking { id: string; appointment_id: string; customer_id: string; staff_name: string | null; staff_id: string | null; start_at: string; end_at: string | null; status: string | null; zoom_url: string | null; kind: 'demo' | 'consultation' }

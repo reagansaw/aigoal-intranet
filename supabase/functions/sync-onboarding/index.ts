@@ -1,8 +1,8 @@
 // Deploy: supabase functions deploy sync-onboarding
-// Admin-only. Pulls Onboarding appointments from the AIGOAL calendar (app.aigoal.ai /api/calendar/appointments)
+// Admin-only. Pulls DEMO bookings too (matched to leads) and Onboarding appointments from the AIGOAL calendar (app.aigoal.ai /api/calendar/appointments)
 // and writes them, read-only, against the matching purchase account (matched by phone, then email).
 // The AIGOAL token is passed in the request (it expires in about an hour) or set once as the secret AIGOAL_API_TOKEN.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
   if (!me?.active || me.role !== 'admin') return json({ error: 'Only Admin can sync the AIGOAL calendar' }, 403)
 
   const body = await req.json().catch(() => ({}))
+  if (body.check) return json({ has_key: !!Deno.env.get('AIGOAL_API_TOKEN') })   // lets the app hide the token box when a permanent key is stored
   const token = (body.token ?? Deno.env.get('AIGOAL_API_TOKEN') ?? '').trim()
   if (!token) return json({ error: 'Paste an AIGOAL API token first' }, 400)
 
@@ -62,5 +63,45 @@ Deno.serve(async (req) => {
   const stale = (existing ?? []).filter((e) => !keep.has(e.appointment_id)).map((e) => e.id)
   if (stale.length) await admin.from('onboarding_sessions').delete().in('id', stale)
 
-  return json({ ok: true, appointments_seen: appts.length, onboarding_found: onboarding, synced: rows.length, removed: stale.length, unmatched })
+  // ── DEMO bookings -> leads (matched by phone, then email) ──
+  const leads: any[] = []
+  for (let from0 = 0; ; from0 += 1000) {
+    const { data } = await admin.from('customers').select('id, phone, email, lead_status').range(from0, from0 + 999)
+    leads.push(...(data ?? [])); if (!data || data.length < 1000) break
+  }
+  const lByPhone = new Map<string, any[]>(); const lByMail = new Map<string, any[]>()
+  for (const l of leads) {
+    if (l.phone) { const k = digits(l.phone); (lByPhone.get(k) ?? lByPhone.set(k, []).get(k)!).push(l) }
+    if (l.email) { const k = mail(l.email); (lByMail.get(k) ?? lByMail.set(k, []).get(k)!).push(l) }
+  }
+  const { data: profs } = await admin.from('profiles').select('id, full_name').eq('active', true)
+  const staffId = (n: string) => { const a = (n ?? '').toLowerCase().trim(); if (!a) return null
+    return (profs ?? []).find((p: any) => { const b = String(p.full_name).toLowerCase().trim(); return b && (a === b || a.startsWith(b + ' ') || b.startsWith(a + ' ')) })?.id ?? null }
+  const demoRows: any[] = []; const demoUnmatched: string[] = []; let demosFound = 0; const toPending = new Map<string, string>()
+  for (const x of appts) {
+    const svc = x.service || x.title || ''
+    if (roundOf(svc)) continue
+    const kind = /consult/i.test(svc) ? 'consultation' : /demo/i.test(svc) ? 'demo' : null
+    if (!kind) continue
+    demosFound++
+    const hit = lByPhone.get(digits(x.customer_phone)) ?? lByMail.get(mail(x.customer_email))
+    if (!hit?.length) { demoUnmatched.push(`${x.customer ?? '?'} (${String(x.start).slice(0, 10)})`); continue }
+    for (const l of hit) {
+      demoRows.push({ kind, appointment_id: x.id, customer_id: l.id, staff_name: x.staff ?? null, staff_id: staffId(x.staff), start_at: x.start, end_at: x.end ?? null,
+        status: x.status ?? null, zoom_url: x.zoom?.join_url ?? null, customer_name: x.customer ?? null, synced_at: new Date().toISOString() })
+      if (!l.lead_status && new Date(x.start).getTime() >= Date.now() - 3600e3 && !['completed', 'cancelled'].includes(x.status)) toPending.set(l.id, kind === 'demo' ? 'pending_demo' : 'pending_consultation')
+    }
+  }
+  if (demoRows.length) { const { error } = await admin.from('demo_bookings').upsert(demoRows, { onConflict: 'appointment_id,customer_id' }); if (error) return json({ error: error.message }, 500) }
+  const keepD = new Set(demoRows.map((r) => r.appointment_id + '|' + r.customer_id))
+  const { data: oldD } = await admin.from('demo_bookings').select('id, appointment_id, customer_id').gte('start_at', from).lte('start_at', to + 'T23:59:59Z')
+  const staleD = (oldD ?? []).filter((e: any) => !keepD.has(e.appointment_id + '|' + e.customer_id)).map((e: any) => e.id)
+  if (staleD.length) await admin.from('demo_bookings').delete().in('id', staleD)
+  for (const st of ['pending_demo', 'pending_consultation']) {
+    const ids = [...toPending].filter(([, v]) => v === st).map(([k]) => k)
+    if (ids.length) await admin.from('customers').update({ lead_status: st }).in('id', ids)
+  }
+
+  return json({ ok: true, appointments_seen: appts.length, onboarding_found: onboarding, synced: rows.length, removed: stale.length, unmatched,
+    demos_found: demosFound, demos_synced: demoRows.length, demos_unmatched: demoUnmatched, set_pending_demo: toPending.size })
 })

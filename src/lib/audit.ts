@@ -32,7 +32,7 @@ export const fieldLabel = (f: string | null) => (f ? FIELD_LABELS[f] ?? f : '')
 export const when = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-export const STATUS_LABELS: Record<string, string> = { pending_management: 'Pending Management', pending_demo: 'Pending Demo', invite_webinar: 'Invite Webinar', potential: 'Potential', close_deal: 'Close Deal' }
+export const STATUS_LABELS: Record<string, string> = { pending_management: 'Pending Management', pending_demo: 'Pending Demo', pending_consultation: 'Pending Consultation', invite_webinar: 'Invite Webinar', potential: 'Potential', close_deal: 'Close Deal' }
 export const ago = (iso: string) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
   if (m < 2) return 'just now'

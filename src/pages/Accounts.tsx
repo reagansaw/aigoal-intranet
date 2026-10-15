@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeCheck, Bell, MessageCircle, CalendarClock, CalendarSync, Check, Eye, Hammer, History, Lock, MessageSquare, Pencil, Plus, Receipt, Save, Trash2, Undo2, UserCog, Video, Wrench } from 'lucide-react'
+import { BadgeCheck, Bell, MessageCircle, CalendarClock, Check, Eye, Hammer, History, Lock, MessageSquare, Pencil, Plus, Receipt, Save, Trash2, Undo2, UserCog, Video, Wrench } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useStaff } from '../lib/useStaff'
@@ -39,7 +39,6 @@ export default function Accounts() {
   const [toast, setToast] = useState('')
   const [remindNote, setRemindNote] = useState('')
   const [bump, setBump] = useState(0)
-  const [sync, setSync] = useState<{ token: string; busy: boolean; msg: string; unmatched: string[] } | null>(null)
   const me = profile!.id
 
   const load = async () => {
@@ -92,17 +91,6 @@ export default function Accounts() {
   const clearRemind = (id: string) => rpc('clear_reminder', { account_id: id })
   const remindOptions: Option[] = builders.filter((b) => b.id !== me).map((b) => ({ value: b.id, label: b.full_name }))
 
-  const runSync = async () => {
-    if (!sync) return
-    setSync({ ...sync, busy: true, msg: '', unmatched: [] })
-    const { data, error } = await supabase.functions.invoke('sync-onboarding', { body: { token: sync.token.trim() } })
-    let m = ''
-    if (error) { try { m = (await (error as any).context.json()).error } catch { m = error.message } }
-    if (m) return setSync({ ...sync, busy: false, msg: m, unmatched: [] })
-    setSync({ token: '', busy: false, msg: `Synced ${data.synced} onboarding session(s) from ${data.onboarding_found} found ✓`, unmatched: data.unmatched ?? [] })
-    load()
-  }
-
   const open = (r: Partial<PurchaseAccount>, t: typeof tab = 'details') => { setEdit(r); setTab(t); setErr(''); setRemindNote('') }
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!edit) return
@@ -140,7 +128,6 @@ export default function Accounts() {
   return (
     <>
       <PageHeader title="Purchase Accounts" sub="Every customer who bought AIGOAL and where they are in the onboarding flow. Only the AI Builder of an account can edit it.">
-        {isAdmin && <button onClick={() => setSync({ token: '', busy: false, msg: '', unmatched: [] })}><CalendarSync size={16} />Sync AIGOAL calendar</button>}
         {isAdmin && <button className="primary" onClick={() => open({ ...blank })}><Plus size={16} />Add account</button>}
       </PageHeader>
 
@@ -341,16 +328,6 @@ export default function Accounts() {
         </Modal>
       )}
 
-      {sync && (
-        <Modal title="Sync AIGOAL calendar" onClose={() => setSync(null)}>
-          <p className="muted" style={{ marginTop: 0 }}>Pulls Onboarding 1 / 2 / 3 bookings from app.aigoal.ai and attaches them to the matching account (by phone, then email). These dates cannot be typed in here.</p>
-          <div className="field"><label>AIGOAL API token (expires in about an hour; it is used once and not stored)</label><textarea value={sync.token} onChange={(e) => setSync({ ...sync, token: e.target.value })} style={{ minHeight: 70, fontFamily: 'monospace', fontSize: '.78rem' }} /></div>
-          {sync.msg && !sync.msg.includes('✓') && <Alert text={sync.msg} />}
-          {sync.msg.includes('✓') && <Msg text={sync.msg} />}
-          {sync.unmatched.length > 0 && <div className="alert" style={{ marginTop: '.6rem' }}>No matching account for: {sync.unmatched.join('; ')}</div>}
-          <div className="modal-foot"><button className="primary" disabled={sync.busy || sync.token.trim().length < 20} onClick={runSync}><CalendarSync size={16} />{sync.busy ? 'Syncing…' : 'Sync now'}</button></div>
-        </Modal>
-      )}
     </>
   )
 }

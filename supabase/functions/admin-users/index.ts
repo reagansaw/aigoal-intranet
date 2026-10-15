@@ -1,7 +1,7 @@
 // Deploy: supabase functions deploy admin-users
 // Lets Admin/HR create staff logins and reset passwords (needs the service role key,
 // which is injected automatically by Supabase and never reaches the browser).
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
