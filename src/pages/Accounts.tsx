@@ -3,7 +3,10 @@ import { AlertTriangle, BadgeCheck, MessageSquareQuote, Pencil, Plus, ReceiptTex
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import Modal from '../components/Modal'
-import { DatePicker, Empty, PageHeader, SearchBox, Select, Stat, opts } from '../components/ui'
+import AuditTrail from '../components/AuditTrail'
+import { DatePicker, Empty, PageHeader, Pagination, SearchBox, Select, Stat, opts, usePaged } from '../components/ui'
+import { applyOwner, ownerOptions, ownerValue } from '../lib/owners'
+import { useStaff } from '../lib/useStaff'
 import type { PurchaseAccount } from '../lib/types'
 
 const IN_USE = [{ value: '', label: 'Unknown' }, { value: 'Y', label: 'Yes, in use' }, { value: 'P', label: 'Partially' }, { value: 'N', label: 'Not using' }]
@@ -17,7 +20,8 @@ const blank: Partial<PurchaseAccount> = { product: 'AIGOAL', account_name: '', t
 const useLabel = (v: string | null) => IN_USE.find((o) => o.value === (v ?? ''))?.label ?? v
 
 export default function Accounts() {
-  const { isManager } = useAuth()
+  const { isAdmin } = useAuth()
+  const staff = useStaff()
   const [rows, setRows] = useState<PurchaseAccount[]>([])
   const [q, setQ] = useState('')
   const [stage, setStage] = useState('all')
@@ -35,7 +39,10 @@ export default function Accounts() {
   const salesList = useMemo(() => [...new Set(rows.map((r) => r.sales).filter(Boolean))] as string[], [rows])
   const shown = rows.filter((r) =>
     (stage === 'all' || (r.onboarding_stage ?? '') === stage) && (use === 'all' || (r.in_use ?? '') === use) && (sales === 'all' || r.sales === sales) &&
-    (!q || [r.account_name, r.contact_person, r.phone, r.email, r.industry, r.remarks, r.action_plan].join(' ').toLowerCase().includes(q.toLowerCase())))
+    (!q || [r.account_name, r.owner_name, r.contact_person, r.phone, r.email, r.industry, r.remarks, r.action_plan].join(' ').toLowerCase().includes(q.toLowerCase())))
+
+  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, stage, use, sales]))
+  const ownersAll = useMemo(() => rows.map((r) => r.owner_name ?? ''), [rows])
 
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!edit) return
@@ -57,7 +64,7 @@ export default function Accounts() {
 
   return (
     <>
-      <PageHeader title="Purchase Accounts" sub="Customers who bought AIGOAL and where they are in onboarding.">
+      <PageHeader title="Purchase Accounts" sub={isAdmin ? 'All customers who bought AIGOAL, and where they are in onboarding.' : 'Your customers who bought AIGOAL, and where they are in onboarding.'}>
         <button className="primary" onClick={() => { setEdit({ ...blank }); setErr('') }}><Plus size={16} />Add account</button>
       </PageHeader>
       <div className="grid">
@@ -75,9 +82,9 @@ export default function Accounts() {
       </div>
       <div className="card flush table-wrap">
         <table>
-          <thead><tr><th>Account</th><th>Name</th><th>Email</th><th>Phone</th><th>Industry</th><th>Purchased</th><th>Stage</th><th>In use</th><th>Sales</th><th>Issue / next action</th><th>Deadline</th><th></th></tr></thead>
+          <thead><tr><th>Account</th><th>Name</th><th>Email</th><th>Phone</th><th>Industry</th><th>Purchased</th><th>Stage</th><th>In use</th><th>{isAdmin ? 'Assigned to' : 'Sales'}</th><th>Issue / next action</th><th>Deadline</th><th></th></tr></thead>
           <tbody>
-            {shown.map((r) => (
+            {pageRows.map((r) => (
               <tr key={r.id} className="click" onClick={() => { setEdit(r); setErr('') }}>
                 <td><div className="cell-title">{r.account_name}</div><div className="muted sm-text">{r.category}</div></td>
                 <td className="cell-title">{r.contact_person || <span className="muted">—</span>}</td>
@@ -86,7 +93,7 @@ export default function Accounts() {
                 <td>{r.industry}</td><td className="nowrap">{r.purchase_date}</td>
                 <td className="nowrap">{r.onboarding_stage && <span className="tag brand">Stage {r.onboarding_stage}</span>}</td>
                 <td>{r.in_use && <span className={'tag ' + (r.in_use === 'Y' ? 'good' : r.in_use === 'N' ? 'warn' : '')}>{useLabel(r.in_use)}</span>}</td>
-                <td>{r.sales ?? r.closed_by}</td>
+                <td>{isAdmin ? (r.owner_name || <span className="muted">Unassigned</span>) : (r.sales ?? r.closed_by)}</td>
                 <td style={{ maxWidth: 320 }}>{r.issues && <div className="cell-title">{r.issues}</div>}<div className="muted sm-text pre">{r.action_plan}</div></td>
                 <td className="nowrap">{r.deadline}</td>
                 <td><Pencil size={15} className="i" style={{ color: 'var(--muted)' }} /></td>
@@ -94,7 +101,8 @@ export default function Accounts() {
             ))}
           </tbody>
         </table>
-        {!shown.length && <Empty icon={ReceiptText} title="No accounts found">Try clearing the filters.</Empty>}
+        {!shown.length && <Empty icon={ReceiptText} title="No accounts found">{isAdmin ? 'Try clearing the filters.' : 'No purchase accounts are assigned to you yet.'}</Empty>}
+        <Pagination pager={pager} />
       </div>
 
       {edit && (
@@ -105,6 +113,7 @@ export default function Accounts() {
               <div className="field"><label>System / company name</label><input required value={edit.account_name ?? ''} onChange={(e) => set('account_name', e.target.value)} /></div>
               {txt('contact_person', 'Contact person')}{txt('phone', 'Phone')}{txt('email', 'Register email')}{txt('industry', 'Industry')}{txt('category', 'Category')}
               <div className="field"><label>Purchase date</label><DatePicker value={edit.purchase_date ?? ''} onChange={(v) => set('purchase_date', v)} /></div>
+              {isAdmin && <div className="field"><label>Assigned to (who sees this account)</label><Select block value={ownerValue(edit)} onChange={(v) => setEdit(applyOwner(edit, v, staff))} options={ownerOptions(staff, ownersAll)} /></div>}
               {txt('closed_by', 'Closed via (成交)')}{txt('sales', 'Sales')}
               <div className="field"><label>Onboarding stage</label><Select block value={edit.onboarding_stage ?? ''} onChange={(v) => set('onboarding_stage', v || null)} options={STAGES} /></div>
               <div className="field"><label>In use</label><Select block value={edit.in_use ?? ''} onChange={(v) => set('in_use', v || null)} options={IN_USE} /></div>
@@ -113,7 +122,7 @@ export default function Accounts() {
             <label className="check" style={{ marginBottom: '1rem' }}><input type="checkbox" checked={edit.testimonial ?? false} onChange={(e) => set('testimonial', e.target.checked)} />Testimonial received</label>
 
             <h2>Follow-up</h2>
-            <div className="form-grid">{txt('remarks', 'Remarks', true)}{txt('issues', 'Issues', true)}{txt('action_plan', 'Action plan', true)}
+            <div className="form-grid">{txt('remarks', 'Remarks', true)}{txt('issues', 'Issues', true)}{txt('action_plan', 'Next action', true)}
               <div className="field"><label>Deadline</label><DatePicker value={edit.deadline ?? ''} onChange={(v) => set('deadline', v)} /></div>
             </div>
 
@@ -122,9 +131,10 @@ export default function Accounts() {
             {err && <div className="alert">{err}</div>}
             <div className="modal-foot">
               <button className="primary"><Save size={16} />Save</button>
-              {edit.id && isManager && <button type="button" className="danger" onClick={del}><Trash2 size={16} />Delete</button>}
+              {edit.id && isAdmin && <button type="button" className="danger" onClick={del}><Trash2 size={16} />Delete</button>}
             </div>
           </form>
+          {edit.id && <AuditTrail table="purchase_accounts" recordId={edit.id} />}
         </Modal>
       )}
     </>

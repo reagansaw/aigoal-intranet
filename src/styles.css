@@ -226,3 +226,18 @@ td .sel-btn { padding: .35rem .5rem; font-size: .88rem; min-width: 110px; }
 .dp-foot { display: flex; justify-content: space-between; margin-top: .4rem; padding-top: .4rem; border-top: 1px solid var(--line); }
 
 .nowrap { white-space: nowrap; }
+
+/* ───── audit trail ───── */
+.audit { margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid var(--line); }
+.audit-row { padding: .65rem 0; border-bottom: 1px solid var(--line); }
+.audit-row:last-child { border-bottom: 0; }
+.audit-meta { display: flex; justify-content: space-between; gap: .75rem; margin-bottom: .3rem; }
+.audit-diff { display: inline-flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; font-size: .88rem; }
+.audit-old { color: var(--bad); background: var(--bad-soft); border-radius: 6px; padding: .05rem .4rem; text-decoration: line-through; text-decoration-color: #0003; }
+.audit-new { color: var(--ok); background: var(--ok-soft); border-radius: 6px; padding: .05rem .4rem; }
+.audit-diff svg { align-self: center; color: var(--muted); }
+
+/* ───── pagination ───── */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .7rem 1.25rem; border-top: 1px solid var(--line); }
+.pager-nav { display: flex; align-items: center; gap: .25rem; }
+.pager .sel-btn { min-width: 76px; padding: .3rem .55rem; font-size: .85rem; }

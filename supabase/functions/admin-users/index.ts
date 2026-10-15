@@ -58,5 +58,15 @@ Deno.serve(async (req) => {
     return json({ ok: true })
   }
 
+  if (body.action === 'update_email') {
+    if (me.role !== 'admin') return json({ error: 'Only Admin can change a login email' }, 403)
+    const email = String(body.email ?? '').trim().toLowerCase()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: 'Enter a valid email address' }, 400)
+    const { error } = await admin.auth.admin.updateUserById(body.id, { email, email_confirm: true })
+    if (error) return json({ error: error.message }, 400)
+    await admin.from('profiles').update({ email }).eq('id', body.id)
+    return json({ ok: true })
+  }
+
   return json({ error: 'Unknown action' }, 400)
 })

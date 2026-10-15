@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart3, BookOpen, ListChecks, LayoutDashboard, LogOut, Menu, PhoneCall, ReceiptText, SlidersHorizontal, Sparkles, UserRound, Users } from 'lucide-react'
+import { BarChart3, BookOpen, ListChecks, LayoutDashboard, LogOut, Menu, PhoneCall, ReceiptText, ScrollText, SlidersHorizontal, Sparkles, UserRound, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { initials } from './ui'
 
@@ -29,6 +29,7 @@ export default function Layout() {
         {link('/kb', 'Knowledge Base', BookOpen)}
         {isManager && <div className="nav-label">Manage</div>}
         {isManager && link('/people', 'People', Users)}
+        {isAdmin && link('/audit', 'Audit Log', ScrollText)}
         {isAdmin && link('/kpi-templates', 'KPI Templates', SlidersHorizontal)}
         <div className="nav-label">Account</div>
         {link('/profile', 'My Profile', UserRound)}

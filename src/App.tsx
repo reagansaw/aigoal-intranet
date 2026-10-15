@@ -13,6 +13,7 @@ import Accounts from './pages/Accounts'
 import Customers from './pages/Customers'
 import KnowledgeBase from './pages/KnowledgeBase'
 import People from './pages/People'
+import AuditLog from './pages/AuditLog'
 
 export default function App() {
   const { session, profile, loading, isAdmin, isManager, signOut } = useAuth()
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="customers" element={<Customers />} />
         <Route path="kb" element={<KnowledgeBase />} />
         {isManager && <Route path="people" element={<People />} />}
+        {isAdmin && <Route path="audit" element={<AuditLog />} />}
         {isAdmin && <Route path="kpi-templates" element={<KpiTemplates />} />}
         <Route path="*" element={<Navigate to="/" />} />
       </Route>

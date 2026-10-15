@@ -3,7 +3,7 @@ import { KeyRound, Pencil, Plus, Save, UserPlus } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
-import { Alert, DatePicker, initials, Msg, opts, PageHeader, SearchBox, Select } from '../components/ui'
+import { Alert, DatePicker, initials, Msg, opts, PageHeader, Pagination, SearchBox, Select, usePaged } from '../components/ui'
 import type { Profile, Role } from '../lib/types'
 
 const EMP = opts(['Full-time', 'Part-time', 'Contract', 'Freelance/Partner', 'Intern'])
@@ -30,6 +30,7 @@ export default function People() {
   const [err, setErr] = useState('')
   const [pw, setPw] = useState('')
   const [q, setQ] = useState('')
+  const [email, setEmail] = useState('')
 
   const load = async () => {
     const { data } = await supabase.from('profiles').select('*').order('active', { ascending: false }).order('full_name')
@@ -37,6 +38,8 @@ export default function People() {
   }
   useEffect(() => { load() }, [])
   const shown = list.filter((p) => !q || [p.full_name, p.email, p.title].join(' ').toLowerCase().includes(q.toLowerCase()))
+
+  const { rows: pageRows, pager } = usePaged(shown, q)
 
   const create = async (e: FormEvent) => {
     e.preventDefault(); setErr('')
@@ -53,6 +56,10 @@ export default function People() {
     if (!edit) return
     try { await call({ action: 'reset_password', id: edit.id, password: pw }); setPw(''); setErr('Password reset ✓') } catch (x: any) { setErr(x.message) }
   }
+  const changeEmail = async () => {
+    if (!edit) return
+    try { await call({ action: 'update_email', id: edit.id, email }); setEdit({ ...edit, email }); setErr('Login email updated ✓'); load() } catch (x: any) { setErr(x.message) }
+  }
   const set = (k: keyof Profile, v: any) => setEdit(edit && { ...edit, [k]: v })
   const fld = (label: string, el: React.ReactNode) => <div className="field"><label>{label}</label>{el}</div>
 
@@ -66,17 +73,18 @@ export default function People() {
         <table>
           <thead><tr><th>Name</th><th>Phone</th><th>Title</th><th>Type</th><th>Period</th><th>Role</th><th></th></tr></thead>
           <tbody>
-            {shown.map((p) => (
+            {pageRows.map((p) => (
               <tr key={p.id} style={{ opacity: p.active ? 1 : .55 }}>
                 <td><div className="row" style={{ flexWrap: 'nowrap' }}><div className="avatar">{initials(p.full_name || p.email)}</div><div><div className="cell-title">{p.full_name || '—'}</div><div className="muted sm-text">{p.email}</div></div></div></td>
                 <td>{p.phone}</td><td>{p.title}</td><td>{p.employment_type}</td>
                 <td className="muted">{p.start_date ?? '—'} to {p.end_date ?? 'ongoing'}</td>
                 <td><span className={'tag ' + p.role}>{p.role}</span>{!p.active && <span className="tag warn" style={{ marginLeft: '.3rem' }}>inactive</span>}</td>
-                <td><button className="ghost icon sm" aria-label="Edit" onClick={() => { setEdit(p); setErr('') }}><Pencil size={15} /></button></td>
+                <td><button className="ghost icon sm" aria-label="Edit" onClick={() => { setEdit(p); setEmail(p.email ?? ''); setErr('') }}><Pencil size={15} /></button></td>
               </tr>
             ))}
           </tbody>
         </table>
+        <Pagination pager={pager} />
       </div>
 
       {adding && (
@@ -118,6 +126,16 @@ export default function People() {
             {err && !err.includes('✓') && <div style={{ marginTop: '.75rem' }}><Alert text={err} /></div>}
             <div className="modal-foot"><button className="primary"><Save size={16} />Save</button></div>
           </form>
+          {isAdmin && (
+            <>
+              <hr />
+              <label>Login email</label>
+              <div className="row">
+                <input style={{ maxWidth: 320 }} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <button type="button" onClick={changeEmail} disabled={!email || email === edit.email}>Update email</button>
+              </div>
+            </>
+          )}
           <hr />
           <label>Reset password</label>
           <p className="muted sm-text" style={{ margin: '0 0 .6rem' }}>Give them this temporary password. At their next login they must choose a new one.</p>

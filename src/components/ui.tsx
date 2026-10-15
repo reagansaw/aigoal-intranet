@@ -217,3 +217,36 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', block
     </>
   )
 }
+
+/** Client-side paging. Pass a `resetKey` (e.g. JSON of the filters) so the table returns to page 1 when filters change. */
+export function usePaged<T>(rows: T[], resetKey: string, initial = 25) {
+  const [page, setPage] = useState(1)
+  const [size, setSize] = useState(initial)
+  useEffect(() => { setPage(1) }, [resetKey, size])
+  const pages = Math.max(1, Math.ceil(rows.length / size))
+  const cur = Math.min(page, pages)
+  return { rows: rows.slice((cur - 1) * size, cur * size), pager: { page: cur, pages, size, total: rows.length, setPage, setSize } }
+}
+export type Pager = ReturnType<typeof usePaged>['pager']
+
+export function Pagination({ pager }: { pager: Pager }) {
+  const { page, pages, size, total, setPage, setSize } = pager
+  if (!total) return null
+  const nums: (number | '…')[] = []
+  for (let i = 1; i <= pages; i++) if (i === 1 || i === pages || Math.abs(i - page) <= 1) nums.push(i); else if (nums[nums.length - 1] !== '…') nums.push('…')
+  return (
+    <div className="pager">
+      <span className="muted sm-text">{(page - 1) * size + 1}–{Math.min(page * size, total)} of {total}</span>
+      <div className="pager-nav">
+        <button className="icon sm" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft size={15} /></button>
+        {nums.map((n, i) => n === '…' ? <span key={'e' + i} className="muted">…</span>
+          : <button key={n} className={'sm' + (n === page ? ' primary' : ' ghost')} onClick={() => setPage(n)}>{n}</button>)}
+        <button className="icon sm" aria-label="Next page" disabled={page >= pages} onClick={() => setPage(page + 1)}><ChevronRight size={15} /></button>
+      </div>
+      <div className="row" style={{ gap: '.4rem' }}>
+        <span className="muted sm-text">Rows</span>
+        <Select value={String(size)} onChange={(v) => setSize(Number(v))} options={['10', '25', '50', '100'].map((v) => ({ value: v, label: v }))} />
+      </div>
+    </div>
+  )
+}

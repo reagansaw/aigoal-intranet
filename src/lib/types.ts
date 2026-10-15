@@ -111,6 +111,8 @@ export interface Customer {
 
 export interface PurchaseAccount {
   id: string
+  owner_id: string | null
+  owner_name: string | null
   product: string
   account_name: string
   testimonial: boolean

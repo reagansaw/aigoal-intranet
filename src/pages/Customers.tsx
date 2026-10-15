@@ -5,7 +5,9 @@ import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import Modal from '../components/Modal'
 import CsvImport from '../components/CsvImport'
-import { DatePicker, Empty, PageHeader, PriorityBadge, SearchBox, Select, Stat, opts } from '../components/ui'
+import AuditTrail from '../components/AuditTrail'
+import { DatePicker, Empty, PageHeader, Pagination, PriorityBadge, SearchBox, Select, Stat, opts, usePaged } from '../components/ui'
+import { applyOwner, ownerOptions, ownerValue } from '../lib/owners'
 import type { Customer } from '../lib/types'
 
 const PRI = [
@@ -50,18 +52,10 @@ export default function Customers() {
   const count = (p: string) => shown.filter((r) => r.priority === p).length
   const closed = shown.filter((r) => r.purchased || r.closed_date || /成交|bought|closed|won|purchased/i.test(r.result ?? '')).length
 
-  // owner picker: real staff + names that have leads but no login yet
-  const ownerOpts = [
-    { value: '', label: 'Unassigned' },
-    ...staff.map((s) => ({ value: 'id:' + s.id, label: s.full_name || s.email || '' })),
-    ...owners.filter((n) => !staff.some((s) => s.full_name === n)).map((n) => ({ value: 'name:' + n, label: `${n} (no login yet)` })),
-  ]
-  const ownerValue = edit?.owner_id ? 'id:' + edit.owner_id : edit?.owner_name ? 'name:' + edit.owner_name : ''
-  const setOwnerFrom = (v: string) => {
-    if (v.startsWith('id:')) setEdit({ ...edit, owner_id: v.slice(3), owner_name: staff.find((s) => s.id === v.slice(3))?.full_name ?? null })
-    else if (v.startsWith('name:')) setEdit({ ...edit, owner_id: null, owner_name: v.slice(5) })
-    else setEdit({ ...edit, owner_id: null, owner_name: null })
-  }
+  const ownerOpts = ownerOptions(staff, owners)
+  const ownerVal = ownerValue(edit ?? {})
+  const setOwnerFrom = (v: string) => setEdit(applyOwner(edit!, v, staff))
+  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, pri, batch, owner, buy]))
 
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!edit) return
@@ -124,7 +118,7 @@ export default function Customers() {
         <table>
           <thead><tr><th>Priority</th><th>Name</th><th>Phone</th><th>Industry</th>{isAdmin && <th>Sales</th>}<th>Webinar</th><th>Call</th><th>Result</th><th></th></tr></thead>
           <tbody>
-            {shown.slice(0, 300).map((r) => (
+            {pageRows.map((r) => (
               <tr key={r.id} className="click" onClick={() => { setEdit(r); setErr('') }}>
                 <td><PriorityBadge p={r.priority} /></td>
                 <td><span className="cell-title">{r.name}</span> {r.purchased && <span className="tag good"><BadgeCheck size={12} />Purchased</span>} {r.prospect && <Star size={14} className="i" style={{ color: '#eab308' }} />}</td>
@@ -137,8 +131,8 @@ export default function Customers() {
             ))}
           </tbody>
         </table>
-        {shown.length > 300 && <p className="muted sm-text" style={{ padding: '.8rem 1rem' }}>Showing the first 300 of {shown.length}. Use search or filters to narrow down.</p>}
         {!shown.length && <Empty icon={Users} title="No customers found">{isAdmin ? 'Add one, import a CSV, or adjust the filters.' : 'Nothing assigned to you yet.'}</Empty>}
+        <Pagination pager={pager} />
       </div>
 
       {edit && (
@@ -146,7 +140,7 @@ export default function Customers() {
           <form onSubmit={save}>
             <div className="form-grid">
               {isAdmin && <div className="field"><label>Priority</label><Select block value={edit.priority ?? 'P4'} onChange={(v) => set('priority', v)} options={PRI} /></div>}
-              {isAdmin && <div className="field"><label>Assigned sales</label><Select block value={ownerValue} onChange={setOwnerFrom} options={ownerOpts} /></div>}
+              {isAdmin && <div className="field"><label>Assigned sales</label><Select block value={ownerVal} onChange={setOwnerFrom} options={ownerOpts} /></div>}
               {isAdmin && txt('batch', 'Webinar / batch')}
               {txt('name', 'Name', !isAdmin)}{txt('phone', 'Phone')}{txt('email', 'Email')}{txt('industry', 'Industry')}
               {txt('team_size', 'Team size')}{txt('monthly_revenue', 'Monthly revenue')}{txt('leads_per_day', 'Leads per day')}{txt('reply_method', 'How do they reply?')}
@@ -178,6 +172,7 @@ export default function Customers() {
               {edit.id && isAdmin && <button type="button" className="danger" onClick={del}><Trash2 size={16} />Delete</button>}
             </div>
           </form>
+          {edit.id && <AuditTrail table="customers" recordId={edit.id} />}
         </Modal>
       )}
     </>

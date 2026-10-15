@@ -4,7 +4,7 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
 
 ## One-time setup
 
-1. **Database** – Supabase dashboard → SQL Editor → run `supabase/migrations/001_init.sql`, then `002_…` and `003_force_password_change.sql` in order.
+1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 006).
    (Seeds the Sales KPI template from the Winson sheet and the Useful Link / Onboarding knowledge base.)
 2. **Auth** – Authentication → Providers → Email: keep enabled, turn **off** "Allow new users to sign up"
    (accounts are created by Admin/HR inside the app).
@@ -19,6 +19,16 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
 
 New users, and anyone whose password Admin/HR resets, must choose their own password at their next login before they can
 use the app. Admin/HR hand out a temporary password in People; the user replaces it on first sign-in.
+
+## Who sees what
+
+- **Purchase Accounts and Follow-Up Customers are per person.** Each login sees only the accounts/leads assigned to them;
+  Admin sees everything and assigns owners (the "Assigned to" field). Records are linked to a login by name
+  (e.g. owner "Winson" -> the profile named "Winson"). Staff cannot reassign or delete records.
+- **Audit Log.** Every change to an account or customer is recorded by the database itself (who, when, old value, new value,
+  also deletes). People see the history of their own records inside the edit form; Admin sees the full log under Audit Log.
+- Tables are paginated (10/25/50/100 rows).
+- Admin can change a person's login email under People.
 
 ## Roles
 
