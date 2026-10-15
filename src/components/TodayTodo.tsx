@@ -53,9 +53,9 @@ export default function TodayTodo({ me, todos, setTodos }: { me: string; todos: 
         </div>
       )}
       <div className="bar" style={{ marginBottom: '.5rem' }}><i style={{ width: `${pct}%` }} /></div>
-      {todos.map((t) => (
+      {todos.map((t, i) => (
         <label key={t.id} className={'todo' + (t.done ? ' done' : '')} style={{ margin: 0, cursor: 'pointer', color: 'inherit', fontSize: 'inherit', fontWeight: 400 }}>
-          <input type="checkbox" checked={t.done} onChange={() => toggle(t)} />
+          <span className="todo-n">{i + 1}</span><input type="checkbox" checked={t.done} onChange={() => toggle(t)} />
           <span className="t">{t.title}{t.notes && <div className="src">{t.notes}</div>}</span>
           {t.duration_min ? <span className="tag"><Timer size={12} />{dur(t.duration_min)}</span> : null}
         </label>

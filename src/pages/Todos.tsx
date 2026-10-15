@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { addDays, addMonths, dayLabel, monthLabel, monthStart, today } from '../lib/util'
 import { Alert, DatePicker, Empty, NumberInput, PageHeader, Select } from '../components/ui'
+import TodoChart, { type DayCount } from '../components/TodoChart'
 import type { Todo } from '../lib/types'
 
 const UNITS = [{ value: 'min', label: 'minutes' }, { value: 'h', label: 'hours' }]
@@ -20,6 +21,7 @@ export default function Todos() {
   const [month, setMonth] = useState(monthStart(new Date()))
   const [todos, setTodos] = useState<Todo[]>([])
   const [inbox, setInbox] = useState<Todo[]>([])
+  const [trend, setTrend] = useState<DayCount[]>([])
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState('normal')
   const [notes, setNotes] = useState('')
@@ -32,6 +34,12 @@ export default function Todos() {
     const [from, to] = view === 'day' ? [day, day] : [month, addDays(addMonths(month, 1), -1)]
     const { data } = await supabase.from('todos').select('*').eq('user_id', uid).gte('due_date', from).lte('due_date', to).order('due_date').order('created_at')
     setTodos((data ?? []) as Todo[])
+    const [cf, ct] = view === 'day' ? [addDays(day, -6), day] : [from, to]
+    const { data: rng } = await supabase.from('todos').select('due_date, done').eq('user_id', uid).gte('due_date', cf).lte('due_date', ct)
+    const m: Record<string, DayCount> = {}
+    for (let d = cf; d <= ct; d = addDays(d, 1)) m[d] = { day: d, done: 0, total: 0 }
+    ;(rng ?? []).forEach((t: any) => { const e = m[t.due_date]; if (e) { e.total++; if (t.done) e.done++ } })
+    setTrend(Object.values(m))
     const { data: unsched } = await supabase.from('todos').select('*').eq('user_id', uid).is('due_date', null).eq('done', false).order('deadline', { nullsFirst: false }).order('created_at')
     setInbox((unsched ?? []) as Todo[])
   }
@@ -58,8 +66,9 @@ export default function Todos() {
   const done = todos.filter((t) => t.done).length
   const pct = todos.length ? Math.round((done / todos.length) * 100) : 0
 
-  const item = (t: Todo) => (
+  const item = (t: Todo, n: number) => (
     <div key={t.id} className={'todo' + (t.done ? ' done' : '')}>
+      <span className="todo-n">{n}</span>
       <input type="checkbox" checked={t.done} onChange={() => toggle(t)} aria-label="Done" />
       <span className="t">{t.title}{t.notes && <div className="src">{t.notes}</div>}{t.source && <div className="src">{t.source}</div>}</span>
       {t.duration_min && <span className="tag" title="Time to complete"><Timer size={12} />{dur(t.duration_min)}</span>}
@@ -125,7 +134,7 @@ export default function Todos() {
               <button className="primary" disabled={!title.trim()}><Plus size={16} />Add task</button>
             </form>
             <Alert text={err} />
-            {todos.map(item)}
+            {todos.map((t, i) => item(t, i + 1))}
             {!todos.length && <Empty icon={ListChecks} title="No tasks for this day">Fill in the form above and click Add task.</Empty>}
           </>
         )}
@@ -136,11 +145,13 @@ export default function Todos() {
               <button className="ghost sm" onClick={() => { setDay(d); setView('day') }}><CalendarDays size={15} />{dayLabel(d)}</button>
               <span className="muted sm-text">{list.filter((t) => t.done).length}/{list.length}</span>
             </div>
-            {list.map(item)}
+            {list.map((t, i) => item(t, i + 1))}
           </div>
         ))}
         {view === 'month' && !todos.length && <Empty icon={CalendarDays} title="No tasks this month" />}
       </div>
+
+      <TodoChart data={trend} selected={view === 'day' ? day : undefined} title={view === 'day' ? 'Last 7 days' : `${monthLabel(month)} at a glance`} />
     </>
   )
 }

@@ -452,3 +452,7 @@ tr.picked td { background: var(--brand-soft); }
 .funnel-row small { display: block; margin-top: .3rem; }
 .funnel-status { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--line); }
 .todo-form { margin-bottom: 1rem; padding: .9rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.chart-scroll { overflow-x: auto; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.todo-n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); font-size: .72rem; font-weight: 700; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+.todo.done .todo-n { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
