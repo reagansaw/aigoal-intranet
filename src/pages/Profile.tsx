@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { KeyRound, Save } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { initials, Msg, opts, PageHeader, Select } from '../components/ui'
+import { initials, Msg, opts, PageHeader, Select, PasswordInput } from '../components/ui'
 
 export default function Profile() {
   const { profile, isManager, refresh } = useAuth()
@@ -62,7 +62,7 @@ export default function Profile() {
           </div>
           <form className="card" onSubmit={changePw}>
             <div className="card-head"><h2>Change password</h2></div>
-            <div className="field"><label>New password</label><input type="password" placeholder="At least 8 characters" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" /></div>
+            <div className="field"><label>New password</label><PasswordInput placeholder="At least 8 characters" value={pw} onChange={setPw} autoComplete="new-password" /></div>
             <div className="row"><button><KeyRound size={16} />Update password</button><Msg text={pwMsg} /></div>
           </form>
         </div>

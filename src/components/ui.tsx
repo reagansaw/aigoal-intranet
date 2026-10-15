@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertCircle, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, X, type LucideIcon } from 'lucide-react'
+import { AlertCircle, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, EyeOff, Search, X, type LucideIcon } from 'lucide-react'
 
 export function PageHeader({ title, sub, children }: { title: string; sub?: ReactNode; children?: ReactNode }) {
   return (
@@ -297,5 +297,18 @@ export function Menu({ label, icon: Ico, options, onPick, primary, disabled }: {
         document.body,
       )}
     </>
+  )
+}
+
+/** Password box with an eye to show / hide what was typed. */
+export function PasswordInput({ value, onChange, placeholder, autoComplete, autoFocus, required }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; autoComplete?: string; autoFocus?: boolean; required?: boolean
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="pw-wrap">
+      <input type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoComplete={autoComplete} autoFocus={autoFocus} required={required} />
+      <button type="button" className="pw-eye" aria-label={show ? 'Hide password' : 'Show password'} onClick={() => setShow(!show)}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+    </div>
   )
 }

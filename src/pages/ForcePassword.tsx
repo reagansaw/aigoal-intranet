@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { KeyRound, LogOut, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { Alert } from '../components/ui'
+import { Alert, PasswordInput } from '../components/ui'
 
 /** Shown instead of the app until a new / reset user has chosen their own password. */
 export default function ForcePassword() {
@@ -32,8 +32,8 @@ export default function ForcePassword() {
         <p className="muted" style={{ margin: '.4rem 0 1.4rem' }}>
           Welcome{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}. For security, please replace the temporary password you were given with one only you know.
         </p>
-        <div className="field"><label>New password</label><input type="password" autoFocus autoComplete="new-password" placeholder="At least 8 characters" value={pw} onChange={(e) => setPw(e.target.value)} /></div>
-        <div className="field"><label>Confirm new password</label><input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} /></div>
+        <div className="field"><label>New password</label><PasswordInput autoFocus autoComplete="new-password" placeholder="At least 8 characters" value={pw} onChange={setPw} /></div>
+        <div className="field"><label>Confirm new password</label><PasswordInput autoComplete="new-password" value={pw2} onChange={setPw2} /></div>
         <Alert text={err} />
         <button className="primary block" disabled={busy}><KeyRound size={16} />{busy ? 'Saving…' : 'Save and continue'}</button>
         <button type="button" className="ghost block" style={{ marginTop: '.5rem' }} onClick={signOut}><LogOut size={16} />Sign out</button>

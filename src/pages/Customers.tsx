@@ -7,6 +7,7 @@ import { useStaff } from '../lib/useStaff'
 import { today } from '../lib/util'
 import { useProducts } from '../lib/products'
 import ProductsManager from '../components/ProductsManager'
+import BookingPicker from '../components/BookingPicker'
 import { ago } from '../lib/audit'
 import Modal from '../components/Modal'
 import CsvImport from '../components/CsvImport'
@@ -50,6 +51,7 @@ export default function Customers() {
   const staff = useStaff()
   const { products, reload: reloadProducts } = useProducts()
   const [prodOpen, setProdOpen] = useState(false)
+  const [book, setBook] = useState<{ id: string; name: string; kind: 'demo' | 'consultation' } | null>(null)
   const productPrice = (n: string | null | undefined) => products.find((p) => p.name === n)?.price ?? null
   const PRODUCT_OPTS = products.filter((p) => p.active).map((p) => ({ value: p.name, label: p.name, hint: `RM ${p.price}` }))
   const [params] = useSearchParams()
@@ -107,6 +109,7 @@ export default function Customers() {
   const changeStatus = async (row: Customer, v: string) => {
     if (['pending_management', 'potential', 'invite_webinar'].includes(v))
       return setAsk({ row, status: v, remark: row.lead_status === v ? row.status_remark ?? '' : '', demoBy: '', demoDate: '', demoTime: '', inviteDate: row.webinar_invite_date ?? '', product: '', closeDate: '' })
+    if (v === 'pending_demo' || v === 'pending_consultation') return setBook({ id: row.id, name: row.name, kind: v === 'pending_demo' ? 'demo' : 'consultation' })
     if (v === 'close_deal') return setAsk({ row, status: v, remark: '', demoBy: '', demoDate: '', demoTime: '', inviteDate: '', product: '', closeDate: todayKL() })
     const { error } = await supabase.from('customers').update({ lead_status: v || null }).eq('id', row.id)
     setToast(error ? error.message : ''); load()
@@ -290,6 +293,8 @@ export default function Customers() {
                         {d ? <div className="sm-text" style={{ marginTop: 2 }}><b>{d.staff_name ?? 'Staff TBC'}</b> · {demoWhen(d)} <span className={'tag ' + (d.status === 'completed' ? 'good' : 'brand')} style={{ marginLeft: 6 }}>{d.status === 'completed' ? 'Completed' : 'Booked'}</span></div>
                           : <div className="muted sm-text">Nothing is booked in AIGOAL for this customer yet. Once booked, it appears here after the calendar sync.</div>}
                       </div>
+                      {edit.id && !d && <button type="button" onClick={() => setBook({ id: edit.id!, name: edit.name ?? '', kind: edit.lead_status === 'pending_consultation' ? 'consultation' : 'demo' })}><CalendarSync size={15} />Book now</button>}
+                      {edit.id && !d && <button type="button" onClick={() => setBook({ id: edit.id!, name: edit.name ?? '', kind: edit.lead_status === 'pending_consultation' ? 'consultation' : 'demo' })}><CalendarSync size={15} />Book now</button>}
                       {d?.zoom_url && d.status !== 'completed' && <a className="btn" href={d.zoom_url} target="_blank" rel="noreferrer"><Video size={15} />Zoom</a>}
                     </div>) })()}
                   {edit.lead_status === 'invite_webinar' && (
@@ -338,6 +343,7 @@ export default function Customers() {
         </Modal>
       )}
 
+      {book && <BookingPicker customer={book} kind={book.kind} onClose={() => setBook(null)} onDone={load} />}
       {prodOpen && <ProductsManager products={products} onClose={() => setProdOpen(false)} onChanged={reloadProducts} />}
       {ask && (
         <Modal title={statusOf(ask.status)?.label ?? 'Status'} onClose={() => setAsk(null)}>
