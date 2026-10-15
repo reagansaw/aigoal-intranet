@@ -1,42 +1,66 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { BadgeCheck, Flame, Hourglass, MessageCircle, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import Modal from '../components/Modal'
 import CsvImport from '../components/CsvImport'
+import { DatePicker, Empty, PageHeader, PriorityBadge, SearchBox, Select, Stat, opts } from '../components/ui'
 import type { Customer } from '../lib/types'
 
-const PRI = { P1: '🔥 P1 热单', P2: '🟠 P2 出席但看不久', P3: '🟡 P3 没来但回过 YES', P4: '⚪ P4 报名没回应' } as const
+const PRI = [
+  { value: 'P1', label: 'P1 · Hot (热单)' }, { value: 'P2', label: 'P2 · Attended, left early' },
+  { value: 'P3', label: 'P3 · Missed, replied YES' }, { value: 'P4', label: 'P4 · No response' },
+]
 const CHANNELS = ['Facebook', 'Instagram', 'WhatsApp', 'Telegram', '小红书', 'Website', 'Tiktok']
 const blank: Partial<Customer> = { priority: 'P4', name: '', channels: [] }
 const pk = (r: Record<string, string>, ...k: string[]) => k.map((x) => r[x]).find((v) => v) || null
-const yes = (v: string | null) => !!v && /^(y|yes|true|f|✓|✅|1)/i.test(v.trim())
+const yes = (v: string | null) => !!v && /^(y|yes|true|f|✓|1)/i.test(v.trim())
 
 export default function Customers() {
-  const { profile, isAdmin } = useAuth()
+  const { isAdmin } = useAuth()
   const staff = useStaff()
   const [rows, setRows] = useState<Customer[]>([])
   const [q, setQ] = useState('')
-  const [pri, setPri] = useState('')
-  const [batch, setBatch] = useState('')
-  const [owner, setOwner] = useState('')
+  const [pri, setPri] = useState('all')
+  const [batch, setBatch] = useState('all')
+  const [owner, setOwner] = useState('all')
   const [edit, setEdit] = useState<Partial<Customer> | null>(null)
   const [err, setErr] = useState('')
 
   const load = async () => {
-    const { data } = await supabase.from('customers').select('*').order('priority').order('name').limit(5000)
-    setRows((data ?? []) as Customer[])
+    const all: Customer[] = []
+    for (let from = 0; ; from += 1000) { // page past the 1000-row API limit
+      const { data } = await supabase.from('customers').select('*').order('priority').order('name').range(from, from + 999)
+      all.push(...((data ?? []) as Customer[]))
+      if (!data || data.length < 1000) break
+    }
+    setRows(all)
   }
   useEffect(() => { load() }, [])
 
+  const ownerOf = (r: Pick<Customer, 'owner_id' | 'owner_name'>) => staff.find((s) => s.id === r.owner_id)?.full_name || r.owner_name || ''
   const batches = useMemo(() => [...new Set(rows.map((r) => r.batch).filter(Boolean))] as string[], [rows])
-  const nameOf = (id: string | null) => staff.find((s) => s.id === id)?.full_name || '—'
+  const owners = useMemo(() => [...new Set(rows.map(ownerOf).filter(Boolean))].sort(), [rows, staff])
   const shown = rows.filter((r) =>
-    (!pri || r.priority === pri) && (!batch || r.batch === batch) && (!owner || (owner === 'none' ? !r.owner_id : r.owner_id === owner)) &&
+    (pri === 'all' || r.priority === pri) && (batch === 'all' || r.batch === batch) &&
+    (owner === 'all' || (owner === 'none' ? !ownerOf(r) : ownerOf(r) === owner)) &&
     (!q || [r.name, r.phone, r.email, r.industry].join(' ').toLowerCase().includes(q.toLowerCase())))
-
   const count = (p: string) => shown.filter((r) => r.priority === p).length
-  const closed = shown.filter((r) => r.closed_date || /成交|closed|won/i.test(r.result ?? '')).length
+  const closed = shown.filter((r) => r.closed_date || /成交|bought|closed|won/i.test(r.result ?? '')).length
+
+  // owner picker: real staff + names that have leads but no login yet
+  const ownerOpts = [
+    { value: '', label: 'Unassigned' },
+    ...staff.map((s) => ({ value: 'id:' + s.id, label: s.full_name || s.email || '' })),
+    ...owners.filter((n) => !staff.some((s) => s.full_name === n)).map((n) => ({ value: 'name:' + n, label: `${n} (no login yet)` })),
+  ]
+  const ownerValue = edit?.owner_id ? 'id:' + edit.owner_id : edit?.owner_name ? 'name:' + edit.owner_name : ''
+  const setOwnerFrom = (v: string) => {
+    if (v.startsWith('id:')) setEdit({ ...edit, owner_id: v.slice(3), owner_name: staff.find((s) => s.id === v.slice(3))?.full_name ?? null })
+    else if (v.startsWith('name:')) setEdit({ ...edit, owner_id: null, owner_name: v.slice(5) })
+    else setEdit({ ...edit, owner_id: null, owner_name: null })
+  }
 
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!edit) return
@@ -48,21 +72,23 @@ export default function Customers() {
   }
   const del = async () => { if (edit?.id && confirm('Delete this customer?')) { await supabase.from('customers').delete().eq('id', edit.id); setEdit(null); load() } }
   const set = (k: keyof Customer, v: any) => setEdit({ ...edit, [k]: v })
+  const txt = (k: keyof Customer, label: string, disabled = false) => (
+    <div className="field"><label>{label}</label><input disabled={disabled} value={(edit?.[k] as string) ?? ''} onChange={(e) => set(k, e.target.value)} /></div>
+  )
 
   const importRows = async (rs: Record<string, string>[]) => {
     const payload = rs.map((r) => {
-      const p = (pk(r, '优先级', 'Priority') ?? '').match(/P[1-4]/)?.[0] ?? 'P4'
       const salesName = pk(r, '负责 sales', 'Sales', 'Owner')
+      const match = staff.find((s) => salesName && s.full_name.toLowerCase().includes(salesName.toLowerCase()))
       return {
-        priority: p, name: pk(r, '姓名', 'Name') ?? '', phone: pk(r, '电话', 'Phone'), email: pk(r, 'Email'),
-        industry: pk(r, '行业 (Industry)', '行业', 'Industry'), batch: pk(r, 'Batch', 'Webinar') ?? batch ?? null,
-        owner_id: staff.find((s) => salesName && s.full_name.toLowerCase().includes(salesName.toLowerCase()))?.id ?? null,
-        repeat_from: pk(r, '重复自哪一场'), called: yes(pk(r, 'Call')), not_available: yes(pk(r, 'Not Available?')),
+        priority: (pk(r, '优先级', 'Priority') ?? '').match(/P[1-4]/)?.[0] ?? 'P4', name: pk(r, '姓名', 'Name') ?? '', phone: pk(r, '电话', 'Phone'), email: pk(r, 'Email'),
+        industry: pk(r, '行业 (Industry)', '行业', 'Industry'), batch: pk(r, 'Batch', 'Webinar') ?? (batch !== 'all' ? batch : null),
+        owner_id: match?.id ?? null, owner_name: match?.full_name ?? salesName,
+        repeat_from: pk(r, '重复自哪一场'), called: yes(pk(r, 'Call')), not_available: /not available/i.test(pk(r, 'Not Available?') ?? ''),
         not_interested_reason: pk(r, 'Not Interested? Reason'), team_size: pk(r, '团队人数'), monthly_revenue: pk(r, '月业绩'),
         reply_method: pk(r, '用什么方法回复'), missed_leads: pk(r, '遗漏多少 Leads'), leads_per_day: pk(r, 'Leads per day (每天多少)'),
         channels: CHANNELS.filter((c) => yes(pk(r, c))), other_courses: pk(r, '上过其他课?'), result: pk(r, '跟进结果'),
-        closed_date: /^\d{4}-\d{2}-\d{2}$/.test(pk(r, '成交日期') ?? '') ? pk(r, '成交日期') : null,
-        prospect: yes(pk(r, '准顾客')),
+        closed_date: /^\d{4}-\d{2}-\d{2}$/.test(pk(r, '成交日期') ?? '') ? pk(r, '成交日期') : null, prospect: yes(pk(r, '准顾客')),
       }
     }).filter((p) => p.name)
     for (let i = 0; i < payload.length; i += 500) {
@@ -74,76 +100,76 @@ export default function Customers() {
 
   return (
     <>
-      <div className="row between">
-        <h1>{isAdmin ? 'Follow-Up Customers — Main List' : 'My Follow-Up Customers'}</h1>
-        <div className="row">
-          {isAdmin && <CsvImport onRows={importRows} />}
-          {isAdmin && <button className="primary" onClick={() => { setEdit({ ...blank }); setErr('') }}>+ Add</button>}
-        </div>
-      </div>
-      <div className="grid" style={{ marginBottom: '1rem' }}>
-        {(['P1', 'P2', 'P3', 'P4'] as const).map((p) => <div key={p} className="card" style={{ margin: 0, cursor: 'pointer' }} onClick={() => setPri(pri === p ? '' : p)}><div className="muted">{PRI[p]}</div><div className="stat">{count(p)}</div></div>)}
-        <div className="card" style={{ margin: 0 }}><div className="muted">✅ 已成交</div><div className="stat">{closed}</div></div>
+      <PageHeader title={isAdmin ? 'Follow-Up Customers' : 'My Follow-Up Customers'} sub={isAdmin ? 'Main list. Staff only see the leads assigned to them.' : 'Leads assigned to you.'}>
+        {isAdmin && <CsvImport onRows={importRows} />}
+        {isAdmin && <button className="primary" onClick={() => { setEdit({ ...blank }); setErr('') }}><Plus size={16} />Add customer</button>}
+      </PageHeader>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+        <Stat icon={Flame} tone="red" label="P1 · Hot" value={count('P1')} active={pri === 'P1'} onClick={() => setPri(pri === 'P1' ? 'all' : 'P1')} />
+        <Stat icon={Timer} tone="orange" label="P2 · Left early" value={count('P2')} active={pri === 'P2'} onClick={() => setPri(pri === 'P2' ? 'all' : 'P2')} />
+        <Stat icon={MessageCircle} tone="yellow" label="P3 · Replied YES" value={count('P3')} active={pri === 'P3'} onClick={() => setPri(pri === 'P3' ? 'all' : 'P3')} />
+        <Stat icon={Hourglass} tone="gray" label="P4 · No response" value={count('P4')} active={pri === 'P4'} onClick={() => setPri(pri === 'P4' ? 'all' : 'P4')} />
+        <Stat icon={BadgeCheck} tone="green" label="Closed" value={closed} />
       </div>
       <div className="row" style={{ marginBottom: '1rem' }}>
-        <input style={{ maxWidth: 260 }} placeholder="Search name, phone, email…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select style={{ width: 'auto' }} value={pri} onChange={(e) => setPri(e.target.value)}><option value="">All priorities</option>{Object.entries(PRI).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-        <select style={{ width: 'auto' }} value={batch} onChange={(e) => setBatch(e.target.value)}><option value="">All webinars</option>{batches.map((b) => <option key={b}>{b}</option>)}</select>
-        {isAdmin && <select style={{ width: 'auto' }} value={owner} onChange={(e) => setOwner(e.target.value)}><option value="">All sales</option><option value="none">Unassigned</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}</select>}
-        <span className="muted">{shown.length} customers</span>
+        <SearchBox value={q} onChange={setQ} placeholder="Search name, phone, email…" />
+        <Select value={pri} onChange={setPri} options={[{ value: 'all', label: 'All priorities' }, ...PRI]} />
+        <Select value={batch} onChange={setBatch} options={[{ value: 'all', label: 'All webinars' }, ...opts(batches)]} />
+        {isAdmin && <Select value={owner} onChange={setOwner} options={[{ value: 'all', label: 'All sales' }, { value: 'none', label: 'Unassigned' }, ...opts(owners)]} />}
+        <span className="muted sm-text">{shown.length} customers</span>
       </div>
-      <div className="card table-wrap">
+      <div className="card flush table-wrap">
         <table>
-          <thead><tr><th>Pri</th><th>Name</th><th>Phone</th><th>Industry</th>{isAdmin && <th>Sales</th>}<th>Webinar</th><th>Called</th><th>Result</th><th></th></tr></thead>
+          <thead><tr><th>Priority</th><th>Name</th><th>Phone</th><th>Industry</th>{isAdmin && <th>Sales</th>}<th>Webinar</th><th>Call</th><th>Result</th><th></th></tr></thead>
           <tbody>
-            {shown.map((r) => (
-              <tr key={r.id}>
-                <td><span className={'tag ' + r.priority}>{r.priority}</span></td>
-                <td><b>{r.name}</b>{r.prospect && ' ⭐'}</td>
-                <td>{r.phone && <a href={`https://wa.me/${r.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">{r.phone}</a>}</td>
-                <td>{r.industry}</td>{isAdmin && <td>{nameOf(r.owner_id)}</td>}<td>{r.batch}</td>
-                <td>{r.called ? '📞' : r.not_available ? '✖︎' : ''}</td><td>{r.result}</td>
-                <td><button className="sm" onClick={() => { setEdit(r); setErr('') }}>Open</button></td>
+            {shown.slice(0, 300).map((r) => (
+              <tr key={r.id} className="click" onClick={() => { setEdit(r); setErr('') }}>
+                <td><PriorityBadge p={r.priority} /></td>
+                <td><span className="cell-title">{r.name}</span> {r.prospect && <Star size={14} className="i" style={{ color: '#eab308' }} />}</td>
+                <td>{r.phone && <a href={`https://wa.me/${r.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}</td>
+                <td>{r.industry}</td>{isAdmin && <td>{ownerOf(r) || <span className="muted">—</span>}</td>}<td>{r.batch}</td>
+                <td>{r.called ? <PhoneCall size={16} className="i" style={{ color: 'var(--ok)' }} /> : r.not_available ? <PhoneOff size={16} className="i" style={{ color: 'var(--muted)' }} /> : null}</td>
+                <td style={{ maxWidth: 260 }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.result}</div></td>
+                <td><Pencil size={15} className="i" style={{ color: 'var(--muted)' }} /></td>
               </tr>
             ))}
           </tbody>
         </table>
-        {!shown.length && <p className="muted">{isAdmin ? 'No customers yet. Add manually or import a CSV exported from the leads sheet.' : 'Nothing assigned to you yet.'}</p>}
+        {shown.length > 300 && <p className="muted sm-text" style={{ padding: '.8rem 1rem' }}>Showing the first 300 of {shown.length}. Use search or filters to narrow down.</p>}
+        {!shown.length && <Empty icon={Users} title="No customers found">{isAdmin ? 'Add one, import a CSV, or adjust the filters.' : 'Nothing assigned to you yet.'}</Empty>}
       </div>
+
       {edit && (
-        <Modal title={edit.id ? edit.name ?? 'Customer' : 'Add customer'} onClose={() => setEdit(null)}>
+        <Modal title={edit.id ? edit.name || 'Customer' : 'Add customer'} onClose={() => setEdit(null)}>
           <form onSubmit={save}>
             <div className="form-grid">
-              {isAdmin && <div className="field"><label>Priority</label><select value={edit.priority} onChange={(e) => set('priority', e.target.value)}>{Object.entries(PRI).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>}
-              {isAdmin && <div className="field"><label>Assigned sales</label><select value={edit.owner_id ?? ''} onChange={(e) => set('owner_id', e.target.value || null)}><option value="">Unassigned</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}</select></div>}
-              {isAdmin && <div className="field"><label>Webinar / batch</label><input value={edit.batch ?? ''} onChange={(e) => set('batch', e.target.value)} placeholder="14 Oct" /></div>}
-              <div className="field"><label>Name</label><input required disabled={!isAdmin} value={edit.name ?? ''} onChange={(e) => set('name', e.target.value)} /></div>
-              <div className="field"><label>Phone</label><input value={edit.phone ?? ''} onChange={(e) => set('phone', e.target.value)} /></div>
-              <div className="field"><label>Email</label><input value={edit.email ?? ''} onChange={(e) => set('email', e.target.value)} /></div>
-              <div className="field"><label>Industry</label><input value={edit.industry ?? ''} onChange={(e) => set('industry', e.target.value)} /></div>
-              <div className="field"><label>Team size</label><input value={edit.team_size ?? ''} onChange={(e) => set('team_size', e.target.value)} /></div>
-              <div className="field"><label>Monthly revenue</label><input value={edit.monthly_revenue ?? ''} onChange={(e) => set('monthly_revenue', e.target.value)} /></div>
-              <div className="field"><label>Leads per day</label><input value={edit.leads_per_day ?? ''} onChange={(e) => set('leads_per_day', e.target.value)} /></div>
-              <div className="field"><label>How do they reply?</label><input value={edit.reply_method ?? ''} onChange={(e) => set('reply_method', e.target.value)} /></div>
-              <div className="field"><label>Missed leads</label><input value={edit.missed_leads ?? ''} onChange={(e) => set('missed_leads', e.target.value)} /></div>
-              <div className="field"><label>Other courses attended</label><input value={edit.other_courses ?? ''} onChange={(e) => set('other_courses', e.target.value)} /></div>
-              <div className="field"><label>Not interested — reason</label><input value={edit.not_interested_reason ?? ''} onChange={(e) => set('not_interested_reason', e.target.value)} /></div>
-              <div className="field"><label>Follow-up result</label><input value={edit.result ?? ''} onChange={(e) => set('result', e.target.value)} /></div>
-              <div className="field"><label>Closed date</label><input type="date" value={edit.closed_date ?? ''} onChange={(e) => set('closed_date', e.target.value)} /></div>
+              {isAdmin && <div className="field"><label>Priority</label><Select block value={edit.priority ?? 'P4'} onChange={(v) => set('priority', v)} options={PRI} /></div>}
+              {isAdmin && <div className="field"><label>Assigned sales</label><Select block value={ownerValue} onChange={setOwnerFrom} options={ownerOpts} /></div>}
+              {isAdmin && txt('batch', 'Webinar / batch')}
+              {txt('name', 'Name', !isAdmin)}{txt('phone', 'Phone')}{txt('email', 'Email')}{txt('industry', 'Industry')}
+              {txt('team_size', 'Team size')}{txt('monthly_revenue', 'Monthly revenue')}{txt('leads_per_day', 'Leads per day')}{txt('reply_method', 'How do they reply?')}
+              {txt('missed_leads', 'Missed leads')}{txt('other_courses', 'Other courses attended')}{txt('not_interested_reason', 'Not interested: reason')}{txt('result', 'Follow-up result')}
+              <div className="field"><label>Closed date</label><DatePicker value={edit.closed_date ?? ''} onChange={(v) => set('closed_date', v)} /></div>
             </div>
-            <div className="field"><label>Lead channels</label><div className="row">{CHANNELS.map((c) => <label key={c} className="row" style={{ margin: 0 }}><input type="checkbox" checked={edit.channels?.includes(c) ?? false} onChange={(e) => set('channels', e.target.checked ? [...(edit.channels ?? []), c] : (edit.channels ?? []).filter((x) => x !== c))} />{c}</label>)}</div></div>
-            <div className="row">
-              <label className="row" style={{ margin: 0 }}><input type="checkbox" checked={edit.called ?? false} onChange={(e) => set('called', e.target.checked)} />Called</label>
-              <label className="row" style={{ margin: 0 }}><input type="checkbox" checked={edit.not_available ?? false} onChange={(e) => set('not_available', e.target.checked)} />Not available</label>
-              <label className="row" style={{ margin: 0 }}><input type="checkbox" checked={edit.prospect ?? false} onChange={(e) => set('prospect', e.target.checked)} />⭐ 准顾客</label>
+            <div className="field"><label>Lead channels</label>
+              <div className="row" style={{ gap: '.9rem' }}>{CHANNELS.map((c) => (
+                <label key={c} className="check"><input type="checkbox" checked={edit.channels?.includes(c) ?? false} onChange={(e) => set('channels', e.target.checked ? [...(edit.channels ?? []), c] : (edit.channels ?? []).filter((x) => x !== c))} />{c}</label>
+              ))}</div>
             </div>
-            <div className="field" style={{ marginTop: '.75rem' }}><label>Notes</label><textarea value={edit.notes ?? ''} onChange={(e) => set('notes', e.target.value)} /></div>
-            {err && <div className="err">{err}</div>}
-            <div className="row"><button className="primary">Save</button>{edit.id && isAdmin && <button type="button" className="danger" onClick={del}>Delete</button>}</div>
+            <div className="row" style={{ gap: '1.2rem' }}>
+              <label className="check"><input type="checkbox" checked={edit.called ?? false} onChange={(e) => set('called', e.target.checked)} />Called</label>
+              <label className="check"><input type="checkbox" checked={edit.not_available ?? false} onChange={(e) => set('not_available', e.target.checked)} />Not available</label>
+              <label className="check"><input type="checkbox" checked={edit.prospect ?? false} onChange={(e) => set('prospect', e.target.checked)} />Prospect (准顾客)</label>
+            </div>
+            <div className="field" style={{ marginTop: '.9rem' }}><label>Notes</label><textarea value={edit.notes ?? ''} onChange={(e) => set('notes', e.target.value)} /></div>
+            {err && <div className="alert">{err}</div>}
+            <div className="modal-foot">
+              <button className="primary"><Save size={16} />Save</button>
+              {edit.id && isAdmin && <button type="button" className="danger" onClick={del}><Trash2 size={16} />Delete</button>}
+            </div>
           </form>
         </Modal>
       )}
-      <span hidden>{profile?.id}</span>
     </>
   )
 }

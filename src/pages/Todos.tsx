@@ -1,9 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { addDays, addMonths, dayLabel, monthLabel, monthStart, today } from '../lib/util'
+import { Alert, Empty, PageHeader, Select } from '../components/ui'
 import type { Todo } from '../lib/types'
+
+const PRIORITIES = [{ value: 'low', label: 'Low' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'High' }]
 
 export default function Todos() {
   const { profile, isManager } = useAuth()
@@ -14,7 +18,7 @@ export default function Todos() {
   const [month, setMonth] = useState(monthStart(new Date()))
   const [todos, setTodos] = useState<Todo[]>([])
   const [title, setTitle] = useState('')
-  const [priority, setPriority] = useState<Todo['priority']>('normal')
+  const [priority, setPriority] = useState('normal')
   const [err, setErr] = useState('')
 
   const load = async () => {
@@ -37,69 +41,72 @@ export default function Todos() {
   }
   const del = async (t: Todo) => { await supabase.from('todos').delete().eq('id', t.id); load() }
   const moveTomorrow = async (t: Todo) => { await supabase.from('todos').update({ due_date: addDays(t.due_date, 1) }).eq('id', t.id); load() }
+  const step = (n: number) => (view === 'day' ? setDay(addDays(day, n)) : setMonth(addMonths(month, n)))
 
   const byDay = todos.reduce<Record<string, Todo[]>>((m, t) => ((m[t.due_date] ||= []).push(t), m), {})
   const done = todos.filter((t) => t.done).length
+  const pct = todos.length ? Math.round((done / todos.length) * 100) : 0
 
   const item = (t: Todo) => (
     <div key={t.id} className={'todo' + (t.done ? ' done' : '')}>
-      <input type="checkbox" checked={t.done} onChange={() => toggle(t)} />
-      <span className="t">{t.title} {t.priority === 'high' && <span className="tag P1">high</span>}</span>
-      {!t.done && <button className="sm" title="Move to next day" onClick={() => moveTomorrow(t)}>→</button>}
-      <button className="sm danger" onClick={() => del(t)}>✕</button>
+      <input type="checkbox" checked={t.done} onChange={() => toggle(t)} aria-label="Done" />
+      <span className="t">{t.title}</span>
+      {t.priority === 'high' && <span className="tag warn">High</span>}
+      {t.priority === 'low' && <span className="tag">Low</span>}
+      <span className="acts">
+        {!t.done && <button className="ghost icon sm" title="Move to next day" aria-label="Move to next day" onClick={() => moveTomorrow(t)}><ArrowRight size={15} /></button>}
+        <button className="ghost icon sm danger" title="Delete" aria-label="Delete" onClick={() => del(t)}><Trash2 size={15} /></button>
+      </span>
     </div>
   )
 
   return (
     <>
-      <div className="row between">
-        <h1>To-Do</h1>
-        {isManager && (
-          <select style={{ width: 'auto' }} value={uid} onChange={(e) => setUid(e.target.value)}>
-            {staff.map((s) => <option key={s.id} value={s.id}>{s.full_name || s.email}</option>)}
-          </select>
-        )}
-      </div>
-      <div className="tabs">
-        <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>Day</button>
-        <button className={view === 'month' ? 'on' : ''} onClick={() => setView('month')}>Month</button>
-      </div>
-      <div className="card">
-        <div className="row between">
-          <div className="row">
-            <button onClick={() => view === 'day' ? setDay(addDays(day, -1)) : setMonth(addMonths(month, -1))}>‹</button>
-            <b>{view === 'day' ? dayLabel(day) : monthLabel(month)}</b>
-            <button onClick={() => view === 'day' ? setDay(addDays(day, 1)) : setMonth(addMonths(month, 1))}>›</button>
-            <button onClick={() => { setDay(today()); setMonth(monthStart(new Date())) }}>Today</button>
-          </div>
-          <span className="muted">{done}/{todos.length} done</span>
+      <PageHeader title="To-Do" sub="Plan the day, review the month.">
+        {isManager && <Select value={uid} onChange={setUid} options={staff.map((s) => ({ value: s.id, label: s.full_name || s.email || '' }))} />}
+      </PageHeader>
+      <div className="row between" style={{ marginBottom: '1rem' }}>
+        <div className="tabs" style={{ margin: 0 }}>
+          <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>Day</button>
+          <button className={view === 'month' ? 'on' : ''} onClick={() => setView('month')}>Month</button>
         </div>
-        <div className="bar" style={{ margin: '.6rem 0' }}><i style={{ width: todos.length ? `${(done / todos.length) * 100}%` : 0 }} /></div>
+        <div className="date-nav">
+          <button className="icon" aria-label="Previous" onClick={() => step(-1)}><ChevronLeft size={17} /></button>
+          <b>{view === 'day' ? dayLabel(day) : monthLabel(month)}</b>
+          <button className="icon" aria-label="Next" onClick={() => step(1)}><ChevronRight size={17} /></button>
+          <button onClick={() => { setDay(today()); setMonth(monthStart(new Date())) }}>Today</button>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="row between" style={{ marginBottom: '.5rem' }}>
+          <span className="muted">{done} of {todos.length} completed</span><b>{pct}%</b>
+        </div>
+        <div className="bar" style={{ marginBottom: '.75rem' }}><i style={{ width: `${pct}%` }} /></div>
+
         {view === 'day' && (
           <>
-            <form className="row" onSubmit={add} style={{ marginBottom: '.5rem' }}>
-              <input style={{ flex: 1, minWidth: 180 }} placeholder="Add a task for this day…" value={title} onChange={(e) => setTitle(e.target.value)} />
-              <select style={{ width: 'auto' }} value={priority} onChange={(e) => setPriority(e.target.value as Todo['priority'])}>
-                <option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option>
-              </select>
-              <button className="primary">Add</button>
+            <form className="row" onSubmit={add} style={{ marginBottom: '.75rem', flexWrap: 'nowrap' }}>
+              <input style={{ flex: 1, minWidth: 0 }} placeholder="Add a task for this day…" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Select value={priority} onChange={setPriority} options={PRIORITIES} />
+              <button className="primary"><Plus size={16} />Add</button>
             </form>
-            {err && <div className="err">{err}</div>}
+            <Alert text={err} />
             {todos.map(item)}
-            {!todos.length && <p className="muted">No tasks for this day.</p>}
+            {!todos.length && <Empty icon={ListChecks} title="No tasks for this day">Type above and press Enter to add one.</Empty>}
           </>
         )}
-        {view === 'month' &&
-          Object.entries(byDay).map(([d, list]) => (
-            <div key={d} style={{ marginBottom: '.6rem' }}>
-              <div className="row between">
-                <b style={{ cursor: 'pointer' }} onClick={() => { setDay(d); setView('day') }}>{dayLabel(d)}</b>
-                <span className="muted">{list.filter((t) => t.done).length}/{list.length}</span>
-              </div>
-              {list.map(item)}
+
+        {view === 'month' && Object.entries(byDay).map(([d, list]) => (
+          <div key={d} style={{ marginTop: '1rem' }}>
+            <div className="row between" style={{ marginBottom: '.2rem' }}>
+              <button className="ghost sm" onClick={() => { setDay(d); setView('day') }}><CalendarDays size={15} />{dayLabel(d)}</button>
+              <span className="muted sm-text">{list.filter((t) => t.done).length}/{list.length}</span>
             </div>
-          ))}
-        {view === 'month' && !todos.length && <p className="muted">No tasks this month.</p>}
+            {list.map(item)}
+          </div>
+        ))}
+        {view === 'month' && !todos.length && <Empty icon={CalendarDays} title="No tasks this month" />}
       </div>
     </>
   )

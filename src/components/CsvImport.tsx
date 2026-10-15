@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
+import { Upload } from 'lucide-react'
 import { parseCsv } from '../lib/util'
+import { Msg } from './ui'
 
 /** Reads a CSV (header row required, e.g. exported from Google Sheets) and returns rows as objects. */
 export default function CsvImport({ onRows, label = 'Import CSV' }: { onRows: (rows: Record<string, string>[]) => Promise<string | void>; label?: string }) {
@@ -17,8 +19,8 @@ export default function CsvImport({ onRows, label = 'Import CSV' }: { onRows: (r
   return (
     <span className="row">
       <input ref={ref} type="file" accept=".csv" hidden onChange={(e) => pick(e.target.files?.[0])} />
-      <button onClick={() => ref.current?.click()}>{label}</button>
-      {msg && <span className={msg.includes('✓') ? 'ok' : 'err'}>{msg}</span>}
+      <button onClick={() => ref.current?.click()}><Upload size={16} />{label}</button>
+      <Msg text={msg} />
     </span>
   )
 }

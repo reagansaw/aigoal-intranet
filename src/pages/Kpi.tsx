@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BadgeDollarSign, ChevronLeft, ChevronRight, Coins, Lock, LockOpen, Save, Target, Trash2, TrendingUp } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { achievement, autoScore, calcPayout, itemScore } from '../lib/kpi'
+import { Empty, Msg, NumberInput, PageHeader, Select, Stat } from '../components/ui'
 import { addMonths, money, monthLabel, monthStart } from '../lib/util'
 import type { KpiItem, KpiReview, KpiScore, KpiTemplate } from '../lib/types'
 
@@ -75,7 +77,6 @@ export default function Kpi() {
     if (error) setMsg(error.message); else load()
   }
   const patchScore = (id: string, p: Partial<KpiScore>) => setScores({ ...scores, [id]: { ...scores[id], ...p } })
-  const num = (v: string) => (v === '' ? null : Number(v))
 
   const save = async () => {
     if (!review) return
@@ -96,48 +97,43 @@ export default function Kpi() {
 
   return (
     <>
-      <div className="row between">
-        <h1>PDR / KPI</h1>
-        {isManager && (
-          <select style={{ width: 'auto' }} value={uid} onChange={(e) => setUid(e.target.value)}>
-            {staff.map((s) => <option key={s.id} value={s.id}>{s.full_name || s.email}</option>)}
-          </select>
-        )}
-      </div>
+      <PageHeader title="PDR / KPI" sub="Monthly performance review and payout.">
+        {isManager && <Select value={uid} onChange={setUid} options={staff.map((s) => ({ value: s.id, label: s.full_name || s.email || '' }))} />}
+      </PageHeader>
 
-      <div className="card row">
-        <button onClick={() => setMonth(addMonths(month, -1))}>‹</button>
-        <b>{monthLabel(month)}</b>
-        <button onClick={() => setMonth(addMonths(month, 1))}>›</button>
-        {review?.locked && <span className="tag">🔒 finalised</span>}
+      <div className="row between" style={{ marginBottom: '1rem' }}>
+        <div className="date-nav">
+          <button className="icon" aria-label="Previous month" onClick={() => setMonth(addMonths(month, -1))}><ChevronLeft size={17} /></button>
+          <b>{monthLabel(month)}</b>
+          <button className="icon" aria-label="Next month" onClick={() => setMonth(addMonths(month, 1))}><ChevronRight size={17} /></button>
+        </div>
+        {review?.locked && <span className="tag good"><Lock size={13} />Finalised</span>}
       </div>
 
       {!review && (
         <div className="card">
-          <p className="muted">No scorecard for {monthLabel(month)}.</p>
-          {isManager ? (
-            <div className="row">
-              <select style={{ width: 'auto' }} value={tplId} onChange={(e) => setTplId(e.target.value)}>
-                {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
+          <Empty icon={Target} title={`No scorecard for ${monthLabel(month)}`}>{isManager ? 'Pick a template to start this month.' : 'HR / Admin will set this up.'}</Empty>
+          {isManager && (
+            <div className="row" style={{ justifyContent: 'center' }}>
+              <Select value={tplId} onChange={setTplId} options={templates.map((t) => ({ value: t.id, label: t.name }))} />
               <button className="primary" onClick={create} disabled={!tplId}>Create scorecard</button>
             </div>
-          ) : <p className="muted">HR / Admin will set this up.</p>}
-          {msg && <div className="err">{msg}</div>}
+          )}
+          <div style={{ textAlign: 'center', marginTop: '.6rem' }}><Msg text={msg} /></div>
         </div>
       )}
 
       {review && tpl && payout && (
         <>
           <div className="grid">
-            <div className="card"><div className="muted">Base score</div><div className="stat">{payout.baseScore} / {items.reduce((s, i) => s + Number(i.max_points), 0)}</div></div>
-            <div className="card"><div className="muted">Base bonus</div><div className="stat">{money(payout.baseBonus, tpl.currency)}</div></div>
-            <div className="card"><div className="muted">Over-achievement bonus {payout.qualified ? '' : `(needs ≥ ${tpl.qualify_score})`}</div><div className="stat">{money(payout.overBonus, tpl.currency)}</div></div>
-            <div className="card"><div className="muted">Total incl. {money(tpl.base_fee, tpl.currency)} fixed + commission</div><div className="stat">{money(payout.grand, tpl.currency)}</div></div>
+            <Stat icon={Target} label="Base score" value={`${payout.baseScore} / ${items.reduce((n, i) => n + Number(i.max_points), 0)}`} />
+            <Stat icon={Coins} tone="green" label="Base bonus" value={money(payout.baseBonus, tpl.currency)} />
+            <Stat icon={TrendingUp} tone="orange" label={payout.qualified ? 'Over-achievement bonus' : `Over-achievement (needs ${tpl.qualify_score}+)`} value={money(payout.overBonus, tpl.currency)} />
+            <Stat icon={BadgeDollarSign} tone="red" label={`Total incl. ${money(tpl.base_fee, tpl.currency)} fixed + commission`} value={money(payout.grand, tpl.currency)} />
           </div>
 
-          <div className="card table-wrap">
-            <h2>{tpl.name}</h2>
+          <div className="card flush table-wrap">
+            <div className="card-head"><h2>{tpl.name}</h2></div>
             <table>
               <thead><tr><th>#</th><th>Responsibility</th><th>Standard</th><th>Max</th><th>Target</th><th>Actual</th><th>Achv.</th><th>Score</th><th>Reason</th><th>How to improve</th></tr></thead>
               <tbody>
@@ -147,13 +143,13 @@ export default function Kpi() {
                   const auto = autoScore(it, s?.actual)
                   return (
                     <tr key={it.id}>
-                      <td>{i + 1}</td><td><b>{it.name}</b></td><td className="muted pre">{it.standard}</td>
+                      <td>{i + 1}</td><td><b>{it.name}</b></td><td className="muted pre sm-text" style={{ minWidth: 220 }}>{it.standard}</td>
                       <td>{it.max_points}</td><td>{it.target ?? '—'} {it.unit}</td>
-                      <td>{editable ? <input type="number" step="any" value={s?.actual ?? ''} onChange={(e) => patchScore(it.id, { actual: num(e.target.value) })} /> : s?.actual ?? '—'}</td>
+                      <td>{editable ? <NumberInput value={s?.actual} onChange={(n) => patchScore(it.id, { actual: n })} /> : s?.actual ?? '—'}</td>
                       <td>{a != null ? `${a.toFixed(0)}%` : '—'}</td>
                       <td>
                         {editable ? (
-                          <input type="number" step="any" placeholder={auto != null ? `auto ${auto}` : '0'} value={s?.score ?? ''} onChange={(e) => patchScore(it.id, { score: num(e.target.value) })} />
+                          <NumberInput placeholder={auto != null ? `auto ${auto}` : '0'} value={s?.score} onChange={(n) => patchScore(it.id, { score: n })} />
                         ) : <b>{itemScore(it, s)}</b>}
                       </td>
                       <td>{editable ? <input value={s?.reason ?? ''} onChange={(e) => patchScore(it.id, { reason: e.target.value })} /> : s?.reason}</td>
@@ -163,15 +159,16 @@ export default function Kpi() {
                 })}
               </tbody>
             </table>
-            {editable && <p className="muted">Leave “Score” blank to use the automatic score from the actual figure; type a number to override.</p>}
+            {editable && <p className="muted sm-text" style={{ padding: '.8rem 1.25rem' }}>Leave “Score” blank to use the automatic score from the actual figure; type a number to override.</p>}
           </div>
 
           {tpl.commission_rate > 0 && (
             <div className="card">
-              <h2>Sales commission <span className="muted">({tpl.commission_rate * 100}% of net collected from deal #{tpl.commission_free_deals + 1}, separate from the 80-pt gate)</span></h2>
+              <h2 style={{ marginBottom: '.2rem' }}>Sales commission</h2>
+              <p className="muted sm-text" style={{ marginTop: 0 }}><span>({tpl.commission_rate * 100}% of net collected from deal #{tpl.commission_free_deals + 1}, separate from the 80-pt gate)</span></p>
               <div className="form-grid">
-                <div><label>Deals closed</label>{editable ? <input type="number" value={review.deals_count} onChange={(e) => setReview({ ...review, deals_count: Number(e.target.value) })} /> : review.deals_count}</div>
-                <div><label>Net collected ({tpl.currency})</label>{editable ? <input type="number" step="any" value={review.net_collected} onChange={(e) => setReview({ ...review, net_collected: Number(e.target.value) })} /> : review.net_collected}</div>
+                <div><label>Deals closed</label>{editable ? <NumberInput value={review.deals_count} onChange={(n) => setReview({ ...review, deals_count: n ?? 0 })} /> : review.deals_count}</div>
+                <div><label>Net collected ({tpl.currency})</label>{editable ? <NumberInput value={review.net_collected} onChange={(n) => setReview({ ...review, net_collected: n ?? 0 })} /> : review.net_collected}</div>
                 <div><label>Commission</label><b>{money(payout.commission, tpl.currency)}</b></div>
               </div>
             </div>
@@ -184,25 +181,25 @@ export default function Kpi() {
 
           {isManager && (
             <div className="row">
-              {editable && <button className="primary" onClick={save}>Save</button>}
-              <label className="row" style={{ margin: 0 }}><input type="checkbox" checked={review.locked} onChange={async (e) => {
-                const locked = e.target.checked
+              {editable && <button className="primary" onClick={save}><Save size={16} />Save</button>}
+              <button onClick={async () => {
+                const locked = !review.locked
                 setReview({ ...review, locked })
                 await supabase.from('kpi_reviews').update({ locked }).eq('id', review.id)
-              }} /> Finalise (lock for editing)</label>
-              <button className="danger" onClick={del}>Delete</button>
-              <span className={msg.includes('✓') ? 'ok' : 'err'}>{msg}</span>
+              }}>{review.locked ? <LockOpen size={16} /> : <Lock size={16} />}{review.locked ? 'Reopen for editing' : 'Finalise month'}</button>
+              <button className="danger" onClick={del}><Trash2 size={16} />Delete</button>
+              <Msg text={msg} />
             </div>
           )}
         </>
       )}
 
       {history.length > 0 && (
-        <div className="card table-wrap" style={{ marginTop: '1rem' }}>
-          <h2>总览 · Monthly overview</h2>
+        <div className="card flush table-wrap" style={{ marginTop: '1rem' }}>
+          <div className="card-head"><h2>总览 · Monthly overview</h2></div>
           <table>
             <thead><tr><th>Month</th><th>Base score</th><th>Total income</th></tr></thead>
-            <tbody>{history.map((h) => <tr key={h.month} style={{ cursor: 'pointer' }} onClick={() => setMonth(h.month)}><td>{monthLabel(h.month)}</td><td>{h.score}</td><td>{money(h.grand, h.cur)}</td></tr>)}</tbody>
+            <tbody>{history.map((h) => <tr key={h.month} className="click" onClick={() => setMonth(h.month)}><td>{monthLabel(h.month)}</td><td>{h.score}</td><td>{money(h.grand, h.cur)}</td></tr>)}</tbody>
             <tfoot><tr><th>Average / Total</th><th>{(history.reduce((s, h) => s + h.score, 0) / history.length).toFixed(1)}</th><th>{money(history.reduce((s, h) => s + h.grand, 0), history[0].cur)}</th></tr></tfoot>
           </table>
         </div>

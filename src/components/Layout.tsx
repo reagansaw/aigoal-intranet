@@ -1,34 +1,44 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { BarChart3, BookOpen, ListChecks, LayoutDashboard, LogOut, Menu, PhoneCall, ReceiptText, SlidersHorizontal, Sparkles, UserRound, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
+import { initials } from './ui'
 
 export default function Layout() {
   const { profile, isAdmin, isManager, signOut } = useAuth()
   const [open, setOpen] = useState(false)
-  const link = (to: string, label: string) => (
+  const link = (to: string, label: string, Ico: typeof Menu) => (
     <NavLink to={to} end={to === '/'} className={({ isActive }) => 'nav' + (isActive ? ' active' : '')} onClick={() => setOpen(false)}>
-      {label}
+      <Ico size={18} />{label}
     </NavLink>
   )
   return (
     <div className="shell">
-      <button className="menu-btn" onClick={() => setOpen(!open)}>☰</button>
+      <div className="topbar">
+        <button className="ghost icon" aria-label="Menu" onClick={() => setOpen(true)}><Menu size={20} /></button>
+        AIGOAL Intranet
+      </div>
+      <div className={'scrim' + (open ? ' show' : '')} onClick={() => setOpen(false)} />
       <aside className={'side' + (open ? ' open' : '')}>
-        <div className="brand">AIGOAL Intranet</div>
-        {link('/', '🏠 Home')}
-        {link('/todos', '✅ To-Do')}
-        {link('/kpi', '📊 PDR / KPI')}
-        {link('/accounts', '🧾 Purchase Accounts')}
-        {link('/customers', '📞 Follow-Up Customers')}
-        {link('/kb', '📚 Knowledge Base')}
-        {link('/profile', '👤 My Profile')}
-        {isManager && <div className="muted" style={{ padding: '.8rem .7rem .2rem' }}>MANAGE</div>}
-        {isManager && link('/people', '👥 People')}
-        {isAdmin && link('/kpi-templates', '🛠 KPI Templates')}
+        <div className="brand"><span className="logo"><Sparkles size={18} /></span>AIGOAL Intranet</div>
+        {link('/', 'Home', LayoutDashboard)}
+        {link('/todos', 'To-Do', ListChecks)}
+        {link('/kpi', 'PDR / KPI', BarChart3)}
+        {link('/accounts', 'Purchase Accounts', ReceiptText)}
+        {link('/customers', 'Follow-Up Customers', PhoneCall)}
+        {link('/kb', 'Knowledge Base', BookOpen)}
+        {isManager && <div className="nav-label">Manage</div>}
+        {isManager && link('/people', 'People', Users)}
+        {isAdmin && link('/kpi-templates', 'KPI Templates', SlidersHorizontal)}
+        <div className="nav-label">Account</div>
+        {link('/profile', 'My Profile', UserRound)}
         <div className="who">
-          <div><b>{profile?.full_name || profile?.email}</b></div>
-          <div className="muted">{profile?.role?.toUpperCase()}</div>
-          <button className="sm" style={{ marginTop: '.4rem' }} onClick={signOut}>Sign out</button>
+          <div className="avatar">{initials(profile?.full_name || profile?.email)}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="name">{profile?.full_name || profile?.email}</div>
+            <div className="role">{profile?.role}</div>
+          </div>
+          <button className="out icon" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={17} /></button>
         </div>
       </aside>
       <main className="main"><Outlet /></main>

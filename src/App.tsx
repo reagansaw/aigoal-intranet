@@ -1,3 +1,4 @@
+import { ShieldAlert } from 'lucide-react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import Layout from './components/Layout'
@@ -19,10 +20,13 @@ export default function App() {
   if (!profile || !profile.active)
     return (
       <div className="center">
-        <div className="card login">
-          <h1>No access</h1>
-          <p className="muted">Your account is inactive or has no profile. Please contact Admin or HR.</p>
-          <button onClick={signOut}>Sign out</button>
+        <div className="login">
+          <div className="card">
+            <ShieldAlert size={36} style={{ color: 'var(--warn)' }} />
+            <h1 style={{ margin: '.6rem 0' }}>No access</h1>
+            <p className="muted">Your account is inactive or has no profile. Please contact Admin or HR.</p>
+            <button onClick={signOut}>Sign out</button>
+          </div>
         </div>
       </div>
     )

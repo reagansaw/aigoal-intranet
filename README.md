@@ -4,7 +4,7 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
 
 ## One-time setup
 
-1. **Database** – Supabase dashboard → SQL Editor → paste and run `supabase/migrations/001_init.sql`.
+1. **Database** – Supabase dashboard → SQL Editor → run `supabase/migrations/001_init.sql`, then `002_accounts_and_lead_owners.sql`.
    (Seeds the Sales KPI template from the Winson sheet and the Useful Link / Onboarding knowledge base.)
 2. **Auth** – Authentication → Providers → Email: keep enabled, turn **off** "Allow new users to sign up"
    (accounts are created by Admin/HR inside the app).
@@ -33,6 +33,19 @@ A template has a fixed fee, bonus per base point (+ cap), a qualifying score, op
 Each row can score automatically from the actual figure via **bands** (`100:25, 95:20, …`, higher- or lower-is-better,
 optionally as % of target) or manually; over-achievement bonuses are per row (e.g. ≥130% of target → RM450).
 This reproduces the Winson sheet; build a Sales KPI template by duplicating it and editing the rows.
+
+## Data imported
+
+- **Purchase Accounts** – the first tab of the GHL Subscription Report (44 customers).
+- **Follow-Up Customers** – Winson's and Aaron's webinar lead sheets, all weekly tabs plus Aaron's Inbox (951 leads).
+  Each lead stores its sales person's name (`owner_name`). As soon as a staff profile with a matching name is
+  created in People (e.g. "Winson Tan", "Aaron Lim"), that person's leads are linked to them automatically and they
+  see only those leads.
+
+## UI conventions
+
+Icons are `lucide-react` (no emoji). One shared `Select`, `DatePicker` and `NumberInput` (plain text input, no spinner)
+live in `src/components/ui.tsx` and are used on every page.
 
 ## Extras added beyond the brief
 

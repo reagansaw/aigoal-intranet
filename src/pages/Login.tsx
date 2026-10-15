@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
+import { BarChart3, BookOpen, ListChecks, LogIn, Sparkles } from 'lucide-react'
 import { hasKey, supabase } from '../lib/supabase'
+import { Alert } from '../components/ui'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -16,17 +18,32 @@ export default function Login() {
   }
 
   return (
-    <div className="center">
-      <form className="card login" onSubmit={submit}>
-        <h1>AIGOAL Intranet</h1>
-        <p className="muted">Sign in with your company email and password.</p>
-        {!hasKey && <p className="err">VITE_SUPABASE_ANON_KEY is not set — see README.</p>}
-        <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus /></div>
-        <div className="field"><label>Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
-        {err && <div className="err">{err}</div>}
-        <button className="primary" style={{ width: '100%' }} disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <p className="muted" style={{ marginBottom: 0 }}>Forgot your password? Ask Admin or HR to reset it.</p>
-      </form>
+    <div className="auth">
+      <div className="auth-art">
+        <div className="brand" style={{ padding: 0 }}><span className="logo"><Sparkles size={18} /></span>AIGOAL</div>
+        <div>
+          <h2>Everything your team needs, in one place.</h2>
+          <p>Daily tasks, monthly performance reviews, customer follow-ups and company know-how.</p>
+          <ul>
+            <li><ListChecks size={18} />Daily and monthly to-do planning</li>
+            <li><BarChart3 size={18} />Transparent PDR scorecards and payouts</li>
+            <li><BookOpen size={18} />Scripts, links and onboarding guides</li>
+          </ul>
+        </div>
+        <span style={{ color: '#a5b4fc', fontSize: '.85rem' }}>Internal use only</span>
+      </div>
+      <div className="auth-form">
+        <form onSubmit={submit}>
+          <h1>Sign in</h1>
+          <p className="muted" style={{ marginBottom: '1.5rem' }}>Use your company email and password.</p>
+          {!hasKey && <Alert text="VITE_SUPABASE_ANON_KEY is not set. See README." />}
+          <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus autoComplete="username" /></div>
+          <div className="field"><label>Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></div>
+          <Alert text={err} />
+          <button className="primary block" disabled={busy}><LogIn size={16} />{busy ? 'Signing in…' : 'Sign in'}</button>
+          <p className="muted sm-text" style={{ marginTop: '1rem' }}>Forgot your password? Ask Admin or HR to reset it.</p>
+        </form>
+      </div>
     </div>
   )
 }

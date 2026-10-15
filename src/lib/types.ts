@@ -79,6 +79,7 @@ export interface KpiScore {
 export interface Customer {
   id: string
   owner_id: string | null
+  owner_name: string | null
   batch: string | null
   priority: 'P1' | 'P2' | 'P3' | 'P4'
   name: string
@@ -107,13 +108,33 @@ export interface PurchaseAccount {
   id: string
   product: string
   account_name: string
-  owner_user: string | null
-  industry: string | null
-  status: string | null
-  new_status: string | null
+  testimonial: boolean
   purchase_date: string | null
-  expiry_date: string | null
-  followup_notes: string | null
+  contact_person: string | null
+  phone: string | null
+  email: string | null
+  industry: string | null
+  category: string | null
+  remarks: string | null
+  issues: string | null
+  action_plan: string | null
+  deadline: string | null
+  closed_by: string | null
+  sales: string | null
+  onboarding_stage: string | null
+  in_use: string | null
+  ai_builder: string | null
+  ai_builder_2: string | null
+  whatsapp_group: string | null
+  opened_by: string | null
+  coaching_1: string | null
+  docs_provided: string | null
+  chatbot_done: string | null
+  landing_page_done: string | null
+  coaching_2: string | null
+  optimised: string | null
+  final_coaching: string | null
+  maintenance: string | null
 }
 
 export interface KbArticle {

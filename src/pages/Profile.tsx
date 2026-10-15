@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
+import { KeyRound, Save } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
+import { initials, Msg, opts, PageHeader, Select } from '../components/ui'
 
 export default function Profile() {
   const { profile, isManager, refresh } = useAuth()
@@ -23,41 +25,47 @@ export default function Profile() {
     setPwMsg(error ? error.message : 'Password updated ✓')
     if (!error) setPw('')
   }
-  const ro = (v: string | null) => v || '—'
+  const kv = (label: string, v: React.ReactNode) => <div className="kv"><label>{label}</label><div className="v">{v || '—'}</div></div>
 
   return (
     <>
-      <h1>My Profile</h1>
-      <form className="card" onSubmit={save}>
-        <div className="form-grid">
-          <div className="field"><label>Name</label><input value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} required /></div>
-          <div className="field"><label>Phone number</label><input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></div>
-          <div className="field"><label>Email (login)</label><input value={profile.email ?? ''} disabled /></div>
-          <div className="field"><label>Gender</label>
-            <select value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}>
-              <option value="">—</option><option>Male</option><option>Female</option><option>Other</option>
-            </select>
-          </div>
+      <PageHeader title="My Profile" sub="Your details and sign-in settings." />
+      <div className="card row" style={{ gap: '1rem', flexWrap: 'nowrap' }}>
+        <div className="avatar" style={{ width: 56, height: 56, fontSize: '1.2rem' }}>{initials(profile.full_name || profile.email)}</div>
+        <div>
+          <div style={{ fontSize: '1.15rem', fontWeight: 650 }}>{profile.full_name || 'Unnamed'}</div>
+          <div className="muted">{profile.title || 'No title yet'} · {profile.email}</div>
         </div>
-        <div className="row"><button className="primary">Save</button><span className="ok">{msg}</span></div>
-      </form>
-      <div className="card">
-        <h2>Employment {!isManager && <span className="muted">(set by HR)</span>}</h2>
-        <div className="form-grid">
-          <div><label>Title</label>{ro(profile.title)}</div>
-          <div><label>Employment type</label>{ro(profile.employment_type)}</div>
-          <div><label>Period</label>{ro(profile.start_date)} → {profile.end_date ?? 'ongoing'}</div>
-          <div><label>Role</label><span className={'tag ' + profile.role}>{profile.role}</span></div>
-        </div>
-        {isManager && <p className="muted">Manage employment details under People.</p>}
+        <span className={'tag ' + profile.role} style={{ marginLeft: 'auto' }}>{profile.role}</span>
       </div>
-      <form className="card" onSubmit={changePw}>
-        <h2>Change password</h2>
-        <div className="row">
-          <input type="password" style={{ maxWidth: 280 }} placeholder="New password (min 8)" value={pw} onChange={(e) => setPw(e.target.value)} />
-          <button>Update</button><span className={pwMsg.includes('✓') ? 'ok' : 'err'}>{pwMsg}</span>
+
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', alignItems: 'start' }}>
+        <form className="card" onSubmit={save}>
+          <div className="card-head"><h2>Personal details</h2></div>
+          <div className="field"><label>Name</label><input value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} required /></div>
+          <div className="field"><label>Phone number</label><input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="60123456789" /></div>
+          <div className="field"><label>Email (used to sign in)</label><input value={profile.email ?? ''} disabled /></div>
+          <div className="field"><label>Gender</label><Select block value={f.gender} onChange={(v) => setF({ ...f, gender: v })} options={[{ value: '', label: 'Prefer not to say' }, ...opts(['Male', 'Female', 'Other'])]} /></div>
+          <div className="row"><button className="primary"><Save size={16} />Save changes</button><Msg text={msg} /></div>
+        </form>
+
+        <div>
+          <div className="card">
+            <div className="card-head"><h2>Employment</h2>{!isManager && <span className="muted sm-text">Managed by HR</span>}</div>
+            <div className="form-grid" style={{ rowGap: '1rem' }}>
+              {kv('Title', profile.title)}
+              {kv('Employment type', profile.employment_type)}
+              {kv('Start date', profile.start_date)}
+              {kv('End date', profile.end_date ?? 'Ongoing')}
+            </div>
+          </div>
+          <form className="card" onSubmit={changePw}>
+            <div className="card-head"><h2>Change password</h2></div>
+            <div className="field"><label>New password</label><input type="password" placeholder="At least 8 characters" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" /></div>
+            <div className="row"><button><KeyRound size={16} />Update password</button><Msg text={pwMsg} /></div>
+          </form>
         </div>
-      </form>
+      </div>
     </>
   )
 }
