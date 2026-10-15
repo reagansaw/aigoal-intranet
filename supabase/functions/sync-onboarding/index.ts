@@ -31,8 +31,8 @@ async function handle(req: Request, cron: boolean): Promise<Response> {
   }
 
   const body = await req.json().catch(() => ({}))
-  if (body.check) return json({ has_key: !!(Deno.env.get('AIGOAL_TOKEN') || Deno.env.get('AIGOAL_API_TOKEN')) })   // lets the app hide the token box when a permanent key is stored
-  const token = (body.token ?? (Deno.env.get('AIGOAL_TOKEN') || Deno.env.get('AIGOAL_API_TOKEN')) ?? '').trim()
+  if (body.check) return json({ has_key: !!(Deno.env.get('AIGOAL_API_TOKEN') || Deno.env.get('AIGOAL_TOKEN')) })   // lets the app hide the token box when a permanent key is stored
+  const token = (body.token ?? (Deno.env.get('AIGOAL_API_TOKEN') || Deno.env.get('AIGOAL_TOKEN')) ?? '').trim()
   if (!token) return json({ error: cron ? 'No permanent AIGOAL key is stored yet (set the AIGOAL_API_TOKEN secret)' : 'Paste an AIGOAL API token first' }, 400)
 
   const from = body.from ?? '2026-01-01'
