@@ -34,7 +34,7 @@ use the app. Admin/HR hand out a temporary password in People; the user replaces
 
 Onboarding 1 / 2 / 3 dates are **read-only** in the intranet; they are pulled from the AIGOAL calendar
 (`/api/calendar/appointments`): service "AIGOAL Onboarding" = Onboarding 1, "AIGOAL 2nd Round Onboarding" = Onboarding 2,
-a 3rd-round/final service = Onboarding 3. The sync runs automatically every 30 minutes (pg_cron, migration 029, shared secret `CRON_SECRET`) and each run is logged
+a 3rd-round/final service = Onboarding 3. The sync runs automatically every 30 minutes (pg_cron, migration 029, shared secret `CRON_SECRET`); each run is logged
 in `sync_log`; the Admin dashboard shows whether it is healthy. It needs a long-lived AIGOAL key stored once as the function
 secret `AIGOAL_API_TOKEN` (`supabase secrets set AIGOAL_API_TOKEN=...`). Bookings are matched to accounts by phone, then email.
 Deploy with `supabase functions deploy sync-onboarding`. DEMO/Consultation booking from the intranet uses the `appointment`
