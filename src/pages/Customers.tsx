@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Package, BadgeCheck, CalendarSync, ClipboardList, Video, Flame, History, Hourglass, Lock, MessageCircle, MessageSquare, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, UserRound, Users } from 'lucide-react'
+import { UserCheck, Package, BadgeCheck, CalendarSync, ClipboardList, Video, Flame, History, Hourglass, Lock, MessageCircle, MessageSquare, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, UserRound, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { today } from '../lib/util'
 import { useProducts } from '../lib/products'
 import ProductsManager from '../components/ProductsManager'
+import AssignLeads from '../components/AssignLeads'
 import BookingPicker from '../components/BookingPicker'
 import { ago } from '../lib/audit'
 import Modal from '../components/Modal'
@@ -51,6 +52,8 @@ export default function Customers() {
   const staff = useStaff()
   const { products, reload: reloadProducts } = useProducts()
   const [prodOpen, setProdOpen] = useState(false)
+  const [sel, setSel] = useState<string[]>([])
+  const [assignOpen, setAssignOpen] = useState(false)
   const [book, setBook] = useState<{ id: string; name: string; kind: 'demo' | 'consultation' } | null>(null)
   const productPrice = (n: string | null | undefined) => products.find((p) => p.name === n)?.price ?? null
   const PRODUCT_OPTS = products.filter((p) => p.active).map((p) => ({ value: p.name, label: p.name, hint: `RM ${p.price}` }))
@@ -175,6 +178,7 @@ export default function Customers() {
     <>
       <PageHeader title={isAdmin ? 'Follow-Up Customers' : 'My Follow-Up Customers'} sub={isAdmin ? 'Main list. Each sales person only sees the leads assigned to them.' : 'Leads assigned to you.'}>
         {isAdmin && <CsvImport onRows={importRows} />}
+        {isAdmin && <button onClick={() => { if (!sel.length) setSel(shown.filter((r) => !r.owner_id && !r.owner_name).map((r) => r.id)); setAssignOpen(true) }}><UserCheck size={16} />Assign leads</button>}
         {isAdmin && <button onClick={() => setProdOpen(true)}><Package size={16} />Products</button>}
         {isAdmin && <button className="primary" onClick={() => open({ ...blank })}><Plus size={16} />Add customer</button>}
       </PageHeader>
@@ -195,14 +199,24 @@ export default function Customers() {
         <Msg text={toast} />
       </div>
 
+      {isAdmin && sel.length > 0 && (
+        <div className="alert ok" style={{ alignItems: 'center', gap: '.7rem', flexWrap: 'wrap' }}>
+          <b>{sel.length} selected</b>
+          {sel.length < shown.length && <button className="sm" onClick={() => setSel(shown.map((r) => r.id))}>Select all {shown.length} shown</button>}
+          <span style={{ flex: 1 }} />
+          <button className="primary sm" onClick={() => setAssignOpen(true)}><UserCheck size={15} />Assign leads</button>
+          <button className="sm" onClick={() => setSel([])}>Clear</button>
+        </div>
+      )}
       <div className="card flush table-wrap">
         <table>
-          <thead><tr><th>Priority</th><th>Name</th><th>Phone</th><th>Industry</th>{isAdmin && <th>Sales</th>}<th>Webinar</th><th>Call</th><th style={{ minWidth: 200 }}>Status</th><th className="sticky-end" style={{ width: 52 }}></th></tr></thead>
+          <thead><tr>{isAdmin && <th style={{ width: 40 }}><input type="checkbox" aria-label="Select this page" checked={pageRows.length > 0 && pageRows.every((r) => sel.includes(r.id))} onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...pageRows.map((r) => r.id)])] : sel.filter((id) => !pageRows.some((r) => r.id === id)))} style={{ width: 'auto' }} /></th>}<th>Priority</th><th>Name</th><th>Phone</th><th>Industry</th>{isAdmin && <th>Sales</th>}<th>Webinar</th><th>Call</th><th style={{ minWidth: 200 }}>Status</th><th className="sticky-end" style={{ width: 52 }}></th></tr></thead>
           <tbody>
             {pageRows.map((r) => {
               const st = statusOf(r.lead_status)
               return (
-                <tr key={r.id} className="click" onClick={() => open(r)}>
+                <tr key={r.id} className={'click' + (sel.includes(r.id) ? ' picked' : '')} onClick={() => open(r)}>
+                  {isAdmin && <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={'Select ' + r.name} checked={sel.includes(r.id)} onChange={(e) => setSel(e.target.checked ? [...sel, r.id] : sel.filter((id) => id !== r.id))} style={{ width: 'auto' }} /></td>}
                   <td><PriorityBadge p={r.priority} /></td>
                   <td><span className="cell-title">{r.name}</span> {isBought(r) && <span className="tag good"><BadgeCheck size={12} />Purchased</span>} {r.prospect && <Star size={14} className="i" style={{ color: '#eab308' }} />}</td>
                   <td>{r.phone && <a href={waLink(r.phone)!} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}</td>
@@ -343,6 +357,7 @@ export default function Customers() {
         </Modal>
       )}
 
+      {assignOpen && <AssignLeads leads={rows.filter((r) => sel.includes(r.id))} sales={staff.filter((x) => x.is_sales)} onClose={() => { setAssignOpen(false) }} onDone={() => { setSel([]); load() }} />}
       {book && <BookingPicker customer={book} kind={book.kind} onClose={() => setBook(null)} onDone={load} />}
       {prodOpen && <ProductsManager products={products} onClose={() => setProdOpen(false)} onChanged={reloadProducts} />}
       {ask && (

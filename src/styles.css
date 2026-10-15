@@ -436,3 +436,4 @@ table.daily .daily-cell { text-align: center; padding: .4rem 0; }
 .sync-facts em { font-style: normal; font-size: .78rem; color: var(--muted); }
 .sync-facts .hot { border-color: var(--warn); background: var(--warn-soft); }
 .sync-facts .hot b { color: var(--warn); }
+tr.picked td { background: var(--brand-soft); }

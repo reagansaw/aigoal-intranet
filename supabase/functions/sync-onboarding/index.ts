@@ -112,7 +112,45 @@ async function handle(req: Request, cron: boolean): Promise<Response> {
     if (ids.length) await admin.from('customers').update({ lead_status: st }).in('id', ids)
   }
 
-  return json({ ok: true, appointments_seen: appts.length, onboarding_found: onboarding, synced: rows.length, removed: stale.length, unmatched,
+  // ── Leads: AIGOAL contacts tagged webinar-YYYY-MM-DD (from 16 Sep 2026) keep Follow-Up Customers up to date. Read only on the AIGOAL side. ──
+  const dry = !!body.dry_leads
+  let leadsAdded = 0, leadsUpdated = 0, contactsSeen = 0, leadsError: string | null = null
+  try {
+    const cr = await fetch('https://app.aigoal.ai/api/contacts/list?limit=5000', { headers: { Authorization: `Bearer ${token}`, 'x-impersonate-tenant': TENANT } })
+    if (!cr.ok) throw new Error(`AIGOAL contacts returned ${cr.status}`)
+    const contacts: any[] = (await cr.json()).contacts ?? []
+    contactsSeen = contacts.length
+    const np = (v: unknown) => { const d = String(v ?? '').replace(/\D/g, ''); return d ? (d.startsWith('0') ? '60' + d.slice(1) : d) : '' }
+    const all: any[] = []
+    for (let from = 0; ; from += 1000) {
+      const { data } = await admin.from('customers').select('id, phone, email, aigoal_contact_id, aigoal_tags, aigoal_status').range(from, from + 999)
+      all.push(...(data ?? [])); if (!data || data.length < 1000) break
+    }
+    const byId = new Map<string, any>(), byPhone = new Map<string, any>(), byEmail = new Map<string, any>()
+    for (const c of all) { if (c.aigoal_contact_id) byId.set(c.aigoal_contact_id, c); const p = np(c.phone); if (p) byPhone.set(p, c); const e = String(c.email ?? '').trim().toLowerCase(); if (e) byEmail.set(e, c) }
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const inserts: any[] = []
+    for (const k of contacts) {
+      const web = (k.tags ?? []).filter((t: string) => /^webinar-\d{4}-\d{2}-\d{2}$/.test(t)).map((t: string) => t.slice(8)).filter((d: string) => d >= '2026-09-16').sort()
+      const p = np(k.phone), e = String(k.email ?? '').trim().toLowerCase()
+      const hit = byId.get(k.id) ?? (p ? byPhone.get(p) : undefined) ?? (e ? byEmail.get(e) : undefined)
+      if (hit) {
+        const tags = k.tags ?? []
+        if (hit.aigoal_contact_id !== k.id || (hit.aigoal_status ?? '') !== (k.status ?? '') || JSON.stringify(hit.aigoal_tags ?? []) !== JSON.stringify(tags)) {
+          if (!dry) await admin.from('customers').update({ aigoal_contact_id: k.id, aigoal_tags: tags, aigoal_status: k.status ?? null, aigoal_synced_at: new Date().toISOString() }).eq('id', hit.id)
+          leadsUpdated++
+        }
+      } else if (web.length && (p || e)) {
+        const d = web[web.length - 1]
+        inserts.push({ name: String(k.name || p || e).trim(), phone: p || null, email: e || null, priority: 'P4', batch: `${Number(d.slice(8))} ${MON[Number(d.slice(5, 7)) - 1]}`,
+          aigoal_contact_id: k.id, aigoal_tags: k.tags ?? [], aigoal_status: k.status ?? null, aigoal_synced_at: new Date().toISOString() })
+      }
+    }
+    if (dry) leadsAdded = inserts.length
+    else for (let i = 0; i < inserts.length; i += 200) { const { error } = await admin.from('customers').insert(inserts.slice(i, i + 200)); if (error) throw new Error(error.message); leadsAdded += Math.min(200, inserts.length - i) }
+  } catch (e) { leadsError = (e as Error).message }
+
+  return json({ ok: true, contacts_seen: contactsSeen, leads_added: leadsAdded, leads_updated: leadsUpdated, leads_error: leadsError, dry_run: dry, appointments_seen: appts.length, onboarding_found: onboarding, synced: rows.length, removed: stale.length, unmatched,
     token_expires_at: jwtExp(token) ? new Date(jwtExp(token)).toISOString() : null,
     demos_found: demosFound, demos_synced: demoRows.length, demos_unmatched: demoUnmatched, set_pending_demo: toPending.size })
 }
@@ -127,7 +165,7 @@ Deno.serve(async (req) => {
     if (!out.has_key && (cron || out.ok || out.error)) {
       const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
       await admin.from('sync_log').insert({ source: cron ? 'schedule' : 'manual', ok: !!out.ok, error: out.error ?? null,
-        onboarding: out.synced ?? null, bookings: out.demos_synced ?? null, token_expires_at: out.token_expires_at ?? null })
+        onboarding: out.synced ?? null, bookings: out.demos_synced ?? null, token_expires_at: out.token_expires_at ?? null, leads_added: out.leads_added ?? null, leads_updated: out.leads_updated ?? null })
     }
   }
   return res
