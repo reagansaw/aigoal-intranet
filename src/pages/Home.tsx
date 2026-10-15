@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, BarChart3, CalendarClock, CalendarDays, ClipboardCheck, ExternalLink, Hammer, KeyRound, ListChecks, MessageSquareWarning, NotebookPen, PhoneCall, Pin, Plane, ShieldCheck, UserX, Users, Wallet, Wrench, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, ArrowRight, BarChart3, CalendarClock, CalendarDays, CalendarSync, ClipboardCheck, ExternalLink, Hammer, KeyRound, ListChecks, MessageSquareWarning, NotebookPen, PhoneCall, Pin, Plane, ShieldCheck, UserX, Users, Wallet, Wrench, type LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { loadUserPayouts } from '../lib/kpiLoad'
 import { buildPipeline, dayTime } from '../lib/pipeline'
 import { dayLabel, money, monthLabel, monthStart, today } from '../lib/util'
+import SyncCalendar from '../components/SyncCalendar'
 import { Empty, initials, PageHeader, Stat } from '../components/ui'
 import type { KbArticle, OnboardingSession, PurchaseAccount, Todo } from '../lib/types'
 
@@ -39,14 +40,18 @@ const ago = (iso: string | null) => {
 /** Admin: is the automatic AIGOAL calendar sync healthy? */
 function SyncStatus() {
   const [last, setLast] = useState<{ ran_at: string; ok: boolean; error: string | null } | null | undefined>(undefined)
-  useEffect(() => { supabase.from('sync_log').select('ran_at, ok, error').order('ran_at', { ascending: false }).limit(1).then(({ data }) => setLast(data?.[0] ?? null)) }, [])
+  const [open, setOpen] = useState(false)
+  const load = () => supabase.from('sync_log').select('ran_at, ok, error').order('ran_at', { ascending: false }).limit(1).then(({ data }) => setLast(data?.[0] ?? null))
+  useEffect(() => { load() }, [])
   if (last === undefined) return null
   const stale = last && Date.now() - new Date(last.ran_at).getTime() > 3 * 3600e3
   const bad = !last || !last.ok || stale
   return (
-    <div className={'alert' + (bad ? '' : ' ok')} style={{ marginBottom: '1rem' }}>
-      <b>AIGOAL calendar sync:</b>{' '}
-      {!last ? 'has not run yet.' : last.ok && !stale ? `automatic, last ran ${ago(last.ran_at)}.` : `last run ${ago(last.ran_at)} ${last.ok ? 'is out of date' : 'failed'}${last.error ? ` — ${last.error}` : ''}.`}
+    <div className={'alert' + (bad ? '' : ' ok')} style={{ marginBottom: '1rem', alignItems: 'center' }}>
+      {open && <SyncCalendar onClose={() => setOpen(false)} onDone={load} />}
+      <div style={{ flex: 1 }}><b>AIGOAL calendar sync:</b>{' '}
+      {!last ? 'has not run yet.' : last.ok && !stale ? `automatic, last ran ${ago(last.ran_at)}.` : `last run ${ago(last.ran_at)} ${last.ok ? 'is out of date' : 'failed'}${last.error ? ` — ${last.error}` : ''}.`}</div>
+      <button className="sm" onClick={() => setOpen(true)}><CalendarSync size={15} />Sync now</button>
     </div>
   )
 }
