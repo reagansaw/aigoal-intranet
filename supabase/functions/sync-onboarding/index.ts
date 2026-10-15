@@ -18,20 +18,22 @@ const roundOf = (name: string) => {
   return 1
 }
 
-Deno.serve(async (req) => {
+async function handle(req: Request, cron: boolean): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   const url = Deno.env.get('SUPABASE_URL')!
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-  const caller = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } })
-  const { data: { user } } = await caller.auth.getUser()
-  if (!user) return json({ error: 'Not signed in' }, 401)
-  const { data: me } = await admin.from('profiles').select('role, active').eq('id', user.id).single()
-  if (!me?.active || me.role !== 'admin') return json({ error: 'Only Admin can sync the AIGOAL calendar' }, 403)
+  if (!cron) {
+    const caller = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } })
+    const { data: { user } } = await caller.auth.getUser()
+    if (!user) return json({ error: 'Not signed in' }, 401)
+    const { data: me } = await admin.from('profiles').select('role, active').eq('id', user.id).single()
+    if (!me?.active || me.role !== 'admin') return json({ error: 'Only Admin can sync the AIGOAL calendar' }, 403)
+  }
 
   const body = await req.json().catch(() => ({}))
   if (body.check) return json({ has_key: !!Deno.env.get('AIGOAL_API_TOKEN') })   // lets the app hide the token box when a permanent key is stored
   const token = (body.token ?? Deno.env.get('AIGOAL_API_TOKEN') ?? '').trim()
-  if (!token) return json({ error: 'Paste an AIGOAL API token first' }, 400)
+  if (!token) return json({ error: cron ? 'No permanent AIGOAL key is stored yet (set the AIGOAL_API_TOKEN secret)' : 'Paste an AIGOAL API token first' }, 400)
 
   const from = body.from ?? '2026-01-01'
   const to = body.to ?? new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10)
@@ -104,4 +106,20 @@ Deno.serve(async (req) => {
 
   return json({ ok: true, appointments_seen: appts.length, onboarding_found: onboarding, synced: rows.length, removed: stale.length, unmatched,
     demos_found: demosFound, demos_synced: demoRows.length, demos_unmatched: demoUnmatched, set_pending_demo: toPending.size })
+}
+
+// Runs from the admin screen (signed-in Admin) or on a schedule (shared secret); every run is logged for the dashboard.
+Deno.serve(async (req) => {
+  const secret = Deno.env.get('CRON_SECRET')
+  const cron = !!secret && req.headers.get('x-cron-secret') === secret
+  const res = await handle(req, cron)
+  if (req.method !== 'OPTIONS') {
+    const out = await res.clone().json().catch(() => ({}))
+    if (!out.has_key && (cron || out.ok || out.error)) {
+      const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+      await admin.from('sync_log').insert({ source: cron ? 'schedule' : 'manual', ok: !!out.ok, error: out.error ?? null,
+        onboarding: out.synced ?? null, bookings: out.demos_synced ?? null })
+    }
+  }
+  return res
 })

@@ -36,6 +36,21 @@ const ago = (iso: string | null) => {
   return `${Math.round(m / 1440)} d ago`
 }
 
+/** Admin: is the automatic AIGOAL calendar sync healthy? */
+function SyncStatus() {
+  const [last, setLast] = useState<{ ran_at: string; ok: boolean; error: string | null } | null | undefined>(undefined)
+  useEffect(() => { supabase.from('sync_log').select('ran_at, ok, error').order('ran_at', { ascending: false }).limit(1).then(({ data }) => setLast(data?.[0] ?? null)) }, [])
+  if (last === undefined) return null
+  const stale = last && Date.now() - new Date(last.ran_at).getTime() > 3 * 3600e3
+  const bad = !last || !last.ok || stale
+  return (
+    <div className={'alert' + (bad ? '' : ' ok')} style={{ marginBottom: '1rem' }}>
+      <b>AIGOAL calendar sync:</b>{' '}
+      {!last ? 'has not run yet.' : last.ok && !stale ? `automatic, last ran ${ago(last.ran_at)}.` : `last run ${ago(last.ran_at)} ${last.ok ? 'is out of date' : 'failed'}${last.error ? ` — ${last.error}` : ''}.`}
+    </div>
+  )
+}
+
 function Attention({ items }: { items: Item[] }) {
   const shown = items.filter((i) => i.n > 0)
   return (
@@ -135,6 +150,7 @@ export default function Home() {
     <>
       <PageHeader title={`Welcome back, ${profile?.full_name?.split(' ')[0] || 'there'}`} sub={new Date().toLocaleDateString('en-GB', { dateStyle: 'full' })} />
 
+      {isAdmin && <SyncStatus />}
       <Attention items={isAdmin ? adminItems : myItems} />
 
       {isAdmin && ov && (

@@ -386,3 +386,4 @@ tbody tr:hover td.sticky-end { background: var(--surface-2); }
 .pw-wrap input { padding-right: 2.8rem; }
 .pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: none; box-shadow: none; padding: .5rem; color: var(--muted); display: grid; place-items: center; min-height: 0; }
 .pw-eye:hover { color: var(--text); background: none; }
+.alert.ok { background: var(--ok-soft); color: var(--ok); }
