@@ -76,8 +76,8 @@ export default function Customers() {
       all.push(...((data ?? []) as Customer[]))
       if (!data || data.length < 1000) break
     }
-    // a webinar's leads appear the day after it has taken place (21 Oct shows from 22 Oct)
-    setRows(all.filter((r) => !r.batch_date || r.batch_date < today()))
+    // Staff see a webinar's leads from the day after it has taken place (21 Oct shows from 22 Oct); Admin sees every webinar, upcoming ones marked
+    setRows(isAdmin ? all : all.filter((r) => !r.batch_date || r.batch_date < today()))
     const { data: d } = await supabase.from('demo_bookings').select('*').order('start_at', { ascending: false })
     setDemos((d ?? []) as DemoBooking[])
   }
@@ -206,7 +206,7 @@ export default function Customers() {
                   <td><PriorityBadge p={r.priority} /></td>
                   <td><span className="cell-title">{r.name}</span> {isBought(r) && <span className="tag good"><BadgeCheck size={12} />Purchased</span>} {r.prospect && <Star size={14} className="i" style={{ color: '#eab308' }} />}</td>
                   <td>{r.phone && <a href={waLink(r.phone)!} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}</td>
-                  <td>{r.industry}</td>{isAdmin && <td>{ownerOf(r) || <span className="muted">—</span>}</td>}<td>{r.batch}</td>
+                  <td>{r.industry}</td>{isAdmin && <td>{ownerOf(r) || <span className="muted">—</span>}</td>}<td>{r.batch}{isAdmin && r.batch_date && r.batch_date >= today() && <span className="tag brand" style={{ marginLeft: 6 }} title="Staff cannot see this webinar until the day after it">Upcoming</span>}</td>
                   <td>{r.called ? <PhoneCall size={16} className="i" style={{ color: 'var(--ok)' }} /> : r.not_available ? <PhoneOff size={16} className="i" style={{ color: 'var(--muted)' }} /> : null}</td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <Select value={r.lead_status ?? ''} onChange={(v) => changeStatus(r, v)} placeholder="Set status" options={STATUS_OPTS} />

@@ -63,8 +63,12 @@ function SyncStatus() {
       <div className="sync-text">
         <b>AIGOAL calendar is {live ? 'live' : 'down'}</b>
         <span>{live ? `Last synced ${syncAgo(last.ran_at)} · runs automatically every 30 minutes` : !last ? 'The automatic sync has not run yet.' : last.error?.includes('rejected') || last.error?.includes('No AIGOAL token') ? 'The AIGOAL token has expired. Paste a new one to bring it back.' : last.error ?? 'The last sync failed.'}</span>
-        <span className="sync-covers"><b>What syncs:</b> Onboarding 1 / 2 / 3 → Purchase Accounts{lastOk?.onboarding != null ? ` (${lastOk.onboarding})` : ''} · DEMO and Consultation bookings → Follow-Up Customers{lastOk?.bookings != null ? ` (${lastOk.bookings})` : ''}. Read only: nothing is written to AIGOAL.</span>
-        <span className={'sync-covers' + (soon || !live ? ' hot' : '')}><b>New token needed:</b> {!live ? 'now.' : left === null ? 'when the sync shows down (a token lasts about an hour).' : left <= 0 ? 'now.' : `${clock(lastOk!.token_expires_at!)} (in ${mins(left)}). Paste a new one before then.`}</span>
+        <div className="sync-facts">
+          <div><small>Onboarding 1 / 2 / 3</small><b>{lastOk?.onboarding ?? '—'}</b><em>→ Purchase Accounts</em></div>
+          <div><small>Demo and Consultation</small><b>{lastOk?.bookings ?? '—'}</b><em>→ Follow-Up Customers</em></div>
+          <div className={soon || !live ? 'hot' : ''}><small>New token needed</small><b>{!live || (left !== null && left <= 0) ? 'Now' : left === null ? 'When down' : clock(lastOk!.token_expires_at!)}</b><em>{live && left !== null && left > 0 ? `in ${mins(left)}` : 'a token lasts about an hour'}</em></div>
+        </div>
+        <span className="sync-covers">Read only: nothing is written to AIGOAL.</span>
       </div>
       <button className={live && !soon ? '' : 'primary'} onClick={() => setOpen(true)}><KeyRound size={15} />{live && !soon ? 'Update token' : 'Paste new token'}</button>
     </div>
