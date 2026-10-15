@@ -14,6 +14,8 @@ export interface Profile {
   active: boolean
   must_change_password: boolean
   leave_entitlement: number
+  is_sales: boolean
+  is_ai_builder: boolean
 }
 
 export interface Todo {
@@ -132,10 +134,18 @@ export interface Customer {
   aigoal_tags: string[]
   aigoal_status: string | null
   purchased: boolean
+  batch_date: string | null
+  lead_status: 'pending_management' | 'pending_demo' | 'invite_webinar' | null
+  status_remark: string | null
 }
 
 export interface PurchaseAccount {
   id: string
+  builder_ids: string[]
+  pending_on_id: string | null
+  pending_on_name: string | null
+  pending_since: string | null
+  pending_by_name: string | null
   develop_started_at: string | null
   develop_done_at: string | null
   owner_id: string | null
@@ -210,4 +220,18 @@ export interface OnboardingSession {
   host: string | null
   zoom_url: string | null
   customer_name: string | null
+}
+
+export interface AccountNote {
+  id: string
+  account_id: string
+  kind: 'followup' | 'issue' | 'remark' | 'reminder'
+  body: string
+  next_action: string | null
+  deadline: string | null
+  resolved: boolean
+  resolved_by_name: string | null
+  resolved_at: string | null
+  author_name: string
+  created_at: string
 }

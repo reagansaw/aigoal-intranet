@@ -9,7 +9,7 @@ import type { Profile, Role } from '../lib/types'
 const EMP = opts(['Full-time', 'Part-time', 'Contract', 'Freelance/Partner', 'Intern'])
 const GENDER = [{ value: '', label: '—' }, ...opts(['Male', 'Female', 'Other'])]
 const ROLES = [{ value: 'staff', label: 'Staff' }, { value: 'hr', label: 'HR' }, { value: 'admin', label: 'Admin' }]
-const blank = { email: '', password: '', full_name: '', phone: '', title: '', gender: '', employment_type: 'Full-time', start_date: '', end_date: '', role: 'staff' as Role }
+const blank = { is_sales: false, is_ai_builder: false, email: '', password: '', full_name: '', phone: '', title: '', gender: '', employment_type: 'Full-time', start_date: '', end_date: '', role: 'staff' as Role }
 
 async function call(body: object) {
   const { data, error } = await supabase.functions.invoke('admin-users', { body })
@@ -78,7 +78,7 @@ export default function People() {
                 <td><div className="row" style={{ flexWrap: 'nowrap' }}><div className="avatar">{initials(p.full_name || p.email)}</div><div><div className="cell-title">{p.full_name || '—'}</div><div className="muted sm-text">{p.email}</div></div></div></td>
                 <td>{p.phone}</td><td>{p.title}</td><td>{p.employment_type}</td>
                 <td className="muted">{p.start_date ?? '—'} to {p.end_date ?? 'ongoing'}</td>
-                <td><span className={'tag ' + p.role}>{p.role}</span>{!p.active && <span className="tag warn" style={{ marginLeft: '.3rem' }}>inactive</span>}</td>
+                <td><span className={'tag ' + p.role}>{p.role}</span>{p.is_sales && <span className="tag brand" style={{ marginLeft: '.3rem' }}>Sales</span>}{p.is_ai_builder && <span className="tag good" style={{ marginLeft: '.3rem' }}>AI Builder</span>}{!p.active && <span className="tag warn" style={{ marginLeft: '.3rem' }}>inactive</span>}</td>
                 <td><button className="ghost icon sm" aria-label="Edit" onClick={() => { setEdit(p); setEmail(p.email ?? ''); setErr('') }}><Pencil size={15} /></button></td>
               </tr>
             ))}
@@ -99,6 +99,9 @@ export default function People() {
               {fld('Gender', <Select block value={f.gender} onChange={(v) => setF({ ...f, gender: v })} options={GENDER} />)}
               {fld('Employment type', <Select block value={f.employment_type} onChange={(v) => setF({ ...f, employment_type: v })} options={EMP} />)}
               {isAdmin && fld('Role', <Select block value={f.role} onChange={(v) => setF({ ...f, role: v as Role })} options={ROLES} />)}
+              {isAdmin && <div className="field"><label>Job roles</label><div className="chips">
+                <button type="button" className={'chip' + (f.is_sales ? ' on' : '')} onClick={() => setF({ ...f, is_sales: !f.is_sales })}>Sales</button>
+                <button type="button" className={'chip' + (f.is_ai_builder ? ' on' : '')} onClick={() => setF({ ...f, is_ai_builder: !f.is_ai_builder })}>AI Builder</button></div></div>}
               {fld('Start date', <DatePicker value={f.start_date} onChange={(v) => setF({ ...f, start_date: v })} />)}
               {fld('End date', <DatePicker value={f.end_date} onChange={(v) => setF({ ...f, end_date: v })} />)}
             </div>
@@ -119,6 +122,9 @@ export default function People() {
               {fld('Gender', <Select block value={edit.gender ?? ''} onChange={(v) => set('gender', v || null)} options={GENDER} />)}
               {fld('Employment type', <Select block value={edit.employment_type ?? ''} onChange={(v) => set('employment_type', v || null)} options={[{ value: '', label: '—' }, ...EMP]} />)}
               {isAdmin && fld('Role', <Select block value={edit.role} onChange={(v) => set('role', v)} options={ROLES} />)}
+              {isAdmin && <div className="field"><label>Job roles</label><div className="chips">
+                <button type="button" className={'chip' + (edit.is_sales ? ' on' : '')} onClick={() => set('is_sales', !edit.is_sales)}>Sales</button>
+                <button type="button" className={'chip' + (edit.is_ai_builder ? ' on' : '')} onClick={() => set('is_ai_builder', !edit.is_ai_builder)}>AI Builder</button></div></div>}
               {fld('Start date', <DatePicker value={edit.start_date ?? ''} onChange={(v) => set('start_date', v)} />)}
               {fld('End date', <DatePicker value={edit.end_date ?? ''} onChange={(v) => set('end_date', v)} />)}
             </div>

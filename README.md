@@ -4,7 +4,7 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
 
 ## One-time setup
 
-1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 010).
+1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 017).
    (Seeds the Sales KPI template from the Winson sheet and the Useful Link / Onboarding knowledge base.)
 2. **Auth** – Authentication → Providers → Email: keep enabled, turn **off** "Allow new users to sign up"
    (accounts are created by Admin/HR inside the app).
@@ -57,7 +57,23 @@ optimised records as develop progress.
 - **Admin/HR can set entitlement** per person or for everyone at once (Leave balances tab); the same number becomes the
   default for new staff. Reasons stay private: the team calendar only shows who is away.
 
-## Roles
+## Access and job roles
+
+Access level: **Admin** (everything), **HR** (+ Calendar & Leave approvals, People), **Staff** (everyone else). On top, People has
+**job roles** that can be combined: **Sales** and **AI Builder**. They feed the dropdowns (Assigned sales / Sales / Closed via list
+Sales people; AI Builder 1 / 2 and the Remind menu list AI Builders).
+
+Menu for non-admin: Home, To-Do, PDR/KPI, Meeting Minutes, Purchase Accounts, Follow-Up Customers (profile via the name at the bottom).
+- **Purchase Accounts:** everyone sees every account; only the account's **AI Builder** (or Admin) can edit it, click Develop /
+  Develop Done, or change its customer details (company, name, phone, email, industry, category, purchase date). AI Builders,
+  Sales and Closed-via are set by Admin only. Anyone can add follow-ups and **Remind** an AI Builder, which marks the account
+  "Pending <name>" and shows on their menu badge and dashboard.
+- **Follow-Up Customers:** each sales person sees only the leads assigned to them; priority, assigned sales, webinar, name,
+  phone and email are locked (Admin only). Status: Pending Management (remark required) / Pending Demo / Invite Webinar.
+  A webinar's leads appear the day after it happens (21 Oct shows from 22 Oct).
+- **Admin dashboard (Home):** what needs attention plus every staff member's status.
+
+## Roles (original table)
 
 | | Admin | HR | Staff |
 |---|---|---|---|

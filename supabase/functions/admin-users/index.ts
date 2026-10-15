@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
       employment_type: body.employment_type ?? null,
       start_date: body.start_date || null, end_date: body.end_date || null,
       must_change_password: true, // they choose their own password at first login
+      is_sales: me.role === 'admin' ? !!body.is_sales : false, is_ai_builder: me.role === 'admin' ? !!body.is_ai_builder : false,
     }).eq('id', data.user.id)
     return json({ id: data.user.id })
   }

@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!s) { setProfile(null); return }
     const { data } = await supabase.from('profiles').select('*').eq('id', s.user.id).single()
     setProfile(data as Profile | null)
+    if (data) supabase.rpc('touch_seen').then(() => {})
   }
 
   useEffect(() => {

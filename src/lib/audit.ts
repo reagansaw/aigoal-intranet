@@ -24,9 +24,20 @@ export const FIELD_LABELS: Record<string, string> = {
   reply_method: 'How they reply', missed_leads: 'Missed leads', channels: 'Lead channels', other_courses: 'Other courses', result: 'Follow-up result',
   closed_date: 'Closed date', prospect: 'Prospect', notes: 'Notes', purchased: 'Purchased', aigoal_status: 'App status', aigoal_tags: 'App tags', aigoal_contact_id: 'App contact',
   develop_started_at: 'Develop started', develop_done_at: 'Develop done',
+  lead_status: 'Status', status_remark: 'Status remark',
   status: 'Status', new_status: 'New status', owner_user: 'User', expiry_date: 'Expiry date', followup_notes: 'Follow-up notes',
 }
 export const fieldLabel = (f: string | null) => (f ? FIELD_LABELS[f] ?? f : '')
 
 export const when = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+export const STATUS_LABELS: Record<string, string> = { pending_management: 'Pending Management', pending_demo: 'Pending Demo', invite_webinar: 'Invite Webinar' }
+export const ago = (iso: string) => {
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (m < 2) return 'just now'
+  if (m < 60) return `${m} min ago`
+  if (m < 1440) return `${Math.round(m / 60)} h ago`
+  if (m < 1440 * 14) return `${Math.round(m / 1440)} d ago`
+  return when(iso)
+}

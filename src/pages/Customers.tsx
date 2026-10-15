@@ -1,18 +1,25 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { BadgeCheck, Flame, Hourglass, MessageCircle, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, Users } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { BadgeCheck, Flame, Lock, Hourglass, MessageCircle, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
+import { today } from '../lib/util'
 import Modal from '../components/Modal'
 import CsvImport from '../components/CsvImport'
 import AuditTrail from '../components/AuditTrail'
-import { DatePicker, Empty, PageHeader, Pagination, PriorityBadge, SearchBox, Select, Stat, opts, usePaged } from '../components/ui'
+import { Alert, DatePicker, Empty, Msg, PageHeader, Pagination, PriorityBadge, SearchBox, Select, Stat, opts, usePaged } from '../components/ui'
 import { applyOwner, ownerOptions, ownerValue } from '../lib/owners'
 import type { Customer } from '../lib/types'
 
 const PRI = [
   { value: 'P1', label: 'P1 · Hot (热单)' }, { value: 'P2', label: 'P2 · Attended, left early' },
   { value: 'P3', label: 'P3 · Missed, replied YES' }, { value: 'P4', label: 'P4 · No response' },
+]
+const LEAD_STATUS: { value: string; label: string; tag: string }[] = [
+  { value: 'pending_management', label: 'Pending Management', tag: 'warn' },
+  { value: 'pending_demo', label: 'Pending Demo', tag: 'brand' },
+  { value: 'invite_webinar', label: 'Invite Webinar', tag: 'good' },
 ]
 const CHANNELS = ['Facebook', 'Instagram', 'WhatsApp', 'Telegram', '小红书', 'Website', 'Tiktok']
 const blank: Partial<Customer> = { priority: 'P4', name: '', channels: [] }
@@ -22,11 +29,15 @@ const yes = (v: string | null) => !!v && /^(y|yes|true|f|✓|1)/i.test(v.trim())
 export default function Customers() {
   const { isAdmin } = useAuth()
   const staff = useStaff()
+  const [params] = useSearchParams()
   const [rows, setRows] = useState<Customer[]>([])
   const [q, setQ] = useState('')
   const [pri, setPri] = useState('all')
   const [batch, setBatch] = useState('all')
-  const [owner, setOwner] = useState('all')
+  const [owner, setOwner] = useState(params.get('owner') ?? 'all')
+  const [statusF, setStatusF] = useState(params.get('status') ?? 'all')
+  const [ask, setAsk] = useState<{ row: Customer; remark: string } | null>(null)
+  const [toast, setToast] = useState('')
   const [buy, setBuy] = useState('all')
   const [edit, setEdit] = useState<Partial<Customer> | null>(null)
   const [err, setErr] = useState('')
@@ -38,27 +49,45 @@ export default function Customers() {
       all.push(...((data ?? []) as Customer[]))
       if (!data || data.length < 1000) break
     }
-    setRows(all)
+    // a webinar's leads appear the day after it has taken place (21 Oct shows from 22 Oct)
+    setRows(all.filter((r) => !r.batch_date || r.batch_date < today()))
   }
   useEffect(() => { load() }, [])
 
   const ownerOf = (r: Pick<Customer, 'owner_id' | 'owner_name'>) => staff.find((s) => s.id === r.owner_id)?.full_name || r.owner_name || ''
-  const batches = useMemo(() => [...new Set(rows.map((r) => r.batch).filter(Boolean))] as string[], [rows])
+  const batches = useMemo(() => {
+    const m = new Map<string, { label: string; date: string; n: number }>()
+    rows.forEach((r) => { if (r.batch) { const x = m.get(r.batch) ?? { label: r.batch, date: r.batch_date ?? '', n: 0 }; x.n++; m.set(r.batch, x) } })
+    return [...m.values()].sort((a, b) => a.date.localeCompare(b.date))
+  }, [rows])
   const owners = useMemo(() => [...new Set(rows.map(ownerOf).filter(Boolean))].sort(), [rows, staff])
   const shown = rows.filter((r) =>
-    (pri === 'all' || r.priority === pri) && (buy === 'all' || (buy === 'yes') === r.purchased) && (batch === 'all' || r.batch === batch) &&
+    (pri === 'all' || r.priority === pri) && (statusF === 'all' || (statusF === 'none' ? !r.lead_status : r.lead_status === statusF)) && (buy === 'all' || (buy === 'yes') === r.purchased) && (batch === 'all' || r.batch === batch) &&
     (owner === 'all' || (owner === 'none' ? !ownerOf(r) : ownerOf(r) === owner)) &&
     (!q || [r.name, r.phone, r.email, r.industry].join(' ').toLowerCase().includes(q.toLowerCase())))
   const count = (p: string) => shown.filter((r) => r.priority === p).length
   const closed = shown.filter((r) => r.purchased || r.closed_date || /成交|bought|closed|won|purchased/i.test(r.result ?? '')).length
 
-  const ownerOpts = ownerOptions(staff, owners)
+  const ownerOpts = ownerOptions(staff.filter((x) => x.is_sales || x.role === 'admin'), owners)
   const ownerVal = ownerValue(edit ?? {})
   const setOwnerFrom = (v: string) => setEdit(applyOwner(edit!, v, staff))
-  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, pri, batch, owner, buy]))
+  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, pri, batch, owner, buy, statusF]))
+
+  const changeStatus = async (row: Customer, v: string) => {
+    if (v === 'pending_management') return setAsk({ row, remark: row.status_remark ?? '' })
+    const { error } = await supabase.from('customers').update({ lead_status: v || null }).eq('id', row.id)
+    setToast(error ? error.message : ''); load()
+  }
+  const saveAsk = async () => {
+    if (!ask || !ask.remark.trim()) return
+    const { error } = await supabase.from('customers').update({ lead_status: 'pending_management', status_remark: ask.remark.trim() }).eq('id', ask.row.id)
+    if (error) return setToast(error.message)
+    setAsk(null); setToast(''); load()
+  }
 
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!edit) return
+    if (edit.lead_status === 'pending_management' && !edit.status_remark?.trim()) return setErr('Pending Management needs a remark.')
     const { id, ...rest } = edit as Customer
     const payload = { ...rest, closed_date: rest.closed_date || null }
     const { error } = id ? await supabase.from('customers').update(payload).eq('id', id) : await supabase.from('customers').insert(payload)
@@ -109,14 +138,16 @@ export default function Customers() {
       <div className="row" style={{ marginBottom: '1rem' }}>
         <SearchBox value={q} onChange={setQ} placeholder="Search name, phone, email…" />
         <Select value={pri} onChange={setPri} options={[{ value: 'all', label: 'All priorities' }, ...PRI]} />
-        <Select value={batch} onChange={setBatch} options={[{ value: 'all', label: 'All webinars' }, ...opts(batches)]} />
+        <Select value={batch} onChange={setBatch} options={[{ value: 'all', label: 'All webinars', hint: String(rows.length) }, ...batches.map((b) => ({ value: b.label, label: b.label, hint: String(b.n) }))]} />
+        <Select value={statusF} onChange={setStatusF} options={[{ value: 'all', label: 'Any status' }, ...LEAD_STATUS.map(({ value, label }) => ({ value, label })), { value: 'none', label: 'No status' }]} />
         <Select value={buy} onChange={setBuy} options={[{ value: 'all', label: 'All customers' }, { value: 'yes', label: 'Purchased' }, { value: 'no', label: 'Not purchased' }]} />
         {isAdmin && <Select value={owner} onChange={setOwner} options={[{ value: 'all', label: 'All sales' }, { value: 'none', label: 'Unassigned' }, ...opts(owners)]} />}
         <span className="muted sm-text">{shown.length} customers</span>
+        <Msg text={toast} />
       </div>
       <div className="card flush table-wrap">
         <table>
-          <thead><tr><th>Priority</th><th>Name</th><th>Phone</th><th>Industry</th>{isAdmin && <th>Sales</th>}<th>Webinar</th><th>Call</th><th>Result</th><th></th></tr></thead>
+          <thead><tr><th>Priority</th><th>Name</th><th>Phone</th><th>Industry</th>{isAdmin && <th>Sales</th>}<th>Webinar</th><th>Call</th><th>Result</th><th style={{ minWidth: 190 }}>Status</th><th></th></tr></thead>
           <tbody>
             {pageRows.map((r) => (
               <tr key={r.id} className="click" onClick={() => { setEdit(r); setErr('') }}>
@@ -126,6 +157,10 @@ export default function Customers() {
                 <td>{r.industry}</td>{isAdmin && <td>{ownerOf(r) || <span className="muted">—</span>}</td>}<td>{r.batch}</td>
                 <td>{r.called ? <PhoneCall size={16} className="i" style={{ color: 'var(--ok)' }} /> : r.not_available ? <PhoneOff size={16} className="i" style={{ color: 'var(--muted)' }} /> : null}</td>
                 <td style={{ maxWidth: 260 }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.result}</div></td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <Select value={r.lead_status ?? ''} onChange={(v) => changeStatus(r, v)} placeholder="Set status" options={[{ value: '', label: 'No status' }, ...LEAD_STATUS.map(({ value, label }) => ({ value, label }))]} />
+                  {r.lead_status === 'pending_management' && r.status_remark && <div className="muted sm-text clamp2" style={{ maxWidth: 220, marginTop: 3 }} title={r.status_remark}>{r.status_remark}</div>}
+                </td>
                 <td><Pencil size={15} className="i" style={{ color: 'var(--muted)' }} /></td>
               </tr>
             ))}
@@ -138,11 +173,12 @@ export default function Customers() {
       {edit && (
         <Modal title={edit.id ? edit.name || 'Customer' : 'Add customer'} onClose={() => setEdit(null)}>
           <form onSubmit={save}>
+            {!isAdmin && edit.id && <p className="muted sm-text" style={{ marginTop: 0 }}><Lock size={12} className="i" /> Locked fields (priority, assigned sales, webinar, name, phone, email) can only be changed by Admin.</p>}
             <div className="form-grid">
-              {isAdmin && <div className="field"><label>Priority</label><Select block value={edit.priority ?? 'P4'} onChange={(v) => set('priority', v)} options={PRI} /></div>}
-              {isAdmin && <div className="field"><label>Assigned sales</label><Select block value={ownerVal} onChange={setOwnerFrom} options={ownerOpts} /></div>}
-              {isAdmin && txt('batch', 'Webinar / batch')}
-              {txt('name', 'Name', !isAdmin)}{txt('phone', 'Phone')}{txt('email', 'Email')}{txt('industry', 'Industry')}
+              <div className="field"><label>Priority {!isAdmin && <Lock size={11} className="i" />}</label><Select block disabled={!isAdmin} value={edit.priority ?? 'P4'} onChange={(v) => set('priority', v)} options={PRI} /></div>
+              <div className="field"><label>Assigned sales {!isAdmin && <Lock size={11} className="i" />}</label><Select block disabled={!isAdmin} value={ownerVal} onChange={setOwnerFrom} options={ownerOpts} /></div>
+              {txt('batch', 'Webinar / batch', !isAdmin)}
+              {txt('name', 'Name', !isAdmin)}{txt('phone', 'Phone', !isAdmin)}{txt('email', 'Email', !isAdmin)}{txt('industry', 'Industry')}
               {txt('team_size', 'Team size')}{txt('monthly_revenue', 'Monthly revenue')}{txt('leads_per_day', 'Leads per day')}{txt('reply_method', 'How do they reply?')}
               {txt('missed_leads', 'Missed leads')}{txt('other_courses', 'Other courses attended')}{txt('not_interested_reason', 'Not interested: reason')}{txt('result', 'Follow-up result')}
               <div className="field"><label>Closed date</label><DatePicker value={edit.closed_date ?? ''} onChange={(v) => set('closed_date', v)} /></div>
@@ -165,6 +201,10 @@ export default function Customers() {
               <label className="check"><input type="checkbox" checked={edit.not_available ?? false} onChange={(e) => set('not_available', e.target.checked)} />Not available</label>
               <label className="check"><input type="checkbox" checked={edit.prospect ?? false} onChange={(e) => set('prospect', e.target.checked)} />Prospect (准顾客)</label>
             </div>
+            <div className="form-grid" style={{ marginTop: '.4rem' }}>
+              <div className="field"><label>Status</label><Select block value={edit.lead_status ?? ''} onChange={(v) => setEdit({ ...edit, lead_status: (v || null) as Customer['lead_status'], status_remark: v === 'pending_management' ? edit.status_remark : null })} options={[{ value: '', label: 'No status' }, ...LEAD_STATUS.map(({ value, label }) => ({ value, label }))]} /></div>
+              {edit.lead_status === 'pending_management' && <div className="field"><label>Remark (required for Pending Management)</label><textarea value={edit.status_remark ?? ''} onChange={(e) => set('status_remark', e.target.value)} style={{ minHeight: 60 }} /></div>}
+            </div>
             <div className="field" style={{ marginTop: '.9rem' }}><label>Notes</label><textarea value={edit.notes ?? ''} onChange={(e) => set('notes', e.target.value)} /></div>
             {err && <div className="alert">{err}</div>}
             <div className="modal-foot">
@@ -173,6 +213,13 @@ export default function Customers() {
             </div>
           </form>
           {edit.id && <AuditTrail table="customers" recordId={edit.id} />}
+        </Modal>
+      )}
+      {ask && (
+        <Modal title="Pending Management" onClose={() => setAsk(null)}>
+          <p className="muted" style={{ marginTop: 0 }}>What is {ask.row.name} waiting on Management for? A remark is required.</p>
+          <div className="field"><textarea autoFocus value={ask.remark} onChange={(e) => setAsk({ ...ask, remark: e.target.value })} placeholder="e.g. Needs special pricing approval from Management" /></div>
+          <div className="modal-foot"><button className="primary" disabled={!ask.remark.trim()} onClick={saveAsk}><Save size={16} />Save status</button></div>
         </Modal>
       )}
     </>

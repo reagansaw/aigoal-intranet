@@ -1,16 +1,34 @@
-import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart3, BookOpen, CalendarDays, ListChecks, LayoutDashboard, LogOut, Menu, NotebookPen, PhoneCall, ReceiptText, ScrollText, SlidersHorizontal, UserRound, Users } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { BarChart3, BookOpen, CalendarDays, ListChecks, LayoutDashboard, LogOut, Menu, NotebookPen, PhoneCall, ReceiptText, ScrollText, SlidersHorizontal, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
-import { initials } from './ui'
+import { supabase } from '../lib/supabase'
 import { asset } from '../lib/asset'
+import { initials } from './ui'
 
+/**
+ * Menu by access level:
+ *  everyone      Home, To-Do, PDR/KPI, Meeting Minutes, Purchase Accounts, Follow-Up Customers
+ *  HR (extra)    Calendar & Leave, People
+ *  Admin (all)   + Knowledge Base, Audit Log, KPI Templates
+ */
 export default function Layout() {
-  const { profile, isAdmin, isManager, signOut } = useAuth()
+  const { profile, isAdmin, isHr, isManager, signOut } = useAuth()
   const [open, setOpen] = useState(false)
-  const link = (to: string, label: string, Ico: typeof Menu) => (
+  const [waiting, setWaiting] = useState(0)
+  const loc = useLocation()
+
+  useEffect(() => {
+    if (!profile) return
+    const run = () => supabase.from('purchase_accounts').select('id', { count: 'exact', head: true }).eq('pending_on_id', profile.id).then(({ count }) => setWaiting(count ?? 0))
+    run()
+    const t = setInterval(run, 60000)
+    return () => clearInterval(t)
+  }, [profile?.id, loc.pathname])
+
+  const link = (to: string, label: string, Ico: typeof Menu, badge = 0) => (
     <NavLink to={to} end={to === '/'} className={({ isActive }) => 'nav' + (isActive ? ' active' : '')} onClick={() => setOpen(false)}>
-      <Ico size={18} />{label}
+      <Ico size={18} />{label}{badge > 0 && <span className="nav-badge">{badge}</span>}
     </NavLink>
   )
   return (
@@ -24,24 +42,24 @@ export default function Layout() {
         <div className="brand"><img src={asset('logo-mark.png')} alt="AIGOAL" className="logo-img" width={36} height={36} />AIGOAL Intranet</div>
         {link('/', 'Home', LayoutDashboard)}
         {link('/todos', 'To-Do', ListChecks)}
-        {link('/calendar', 'Calendar & Leave', CalendarDays)}
+        {(isAdmin || isHr) && link('/calendar', 'Calendar & Leave', CalendarDays)}
         {link('/kpi', 'PDR / KPI', BarChart3)}
         {link('/meetings', 'Meeting Minutes', NotebookPen)}
-        {link('/accounts', 'Purchase Accounts', ReceiptText)}
+        {link('/accounts', 'Purchase Accounts', ReceiptText, waiting)}
         {link('/customers', 'Follow-Up Customers', PhoneCall)}
-        {link('/kb', 'Knowledge Base', BookOpen)}
+        {isAdmin && link('/kb', 'Knowledge Base', BookOpen)}
         {isManager && <div className="nav-label">Manage</div>}
         {isManager && link('/people', 'People', Users)}
         {isAdmin && link('/audit', 'Audit Log', ScrollText)}
         {isAdmin && link('/kpi-templates', 'KPI Templates', SlidersHorizontal)}
-        <div className="nav-label">Account</div>
-        {link('/profile', 'My Profile', UserRound)}
         <div className="who">
-          <div className="avatar">{initials(profile?.full_name || profile?.email)}</div>
-          <div style={{ minWidth: 0 }}>
-            <div className="name">{profile?.full_name || profile?.email}</div>
-            <div className="role">{profile?.role}</div>
-          </div>
+          <NavLink to="/profile" className="who-link" title="My profile and password" onClick={() => setOpen(false)}>
+            <div className="avatar">{initials(profile?.full_name || profile?.email)}</div>
+            <div style={{ minWidth: 0 }}>
+              <div className="name">{profile?.full_name || profile?.email}</div>
+              <div className="role">{[profile?.role, profile?.is_sales && 'sales', profile?.is_ai_builder && 'ai builder'].filter(Boolean).join(' · ')}</div>
+            </div>
+          </NavLink>
           <button className="out icon" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={17} /></button>
         </div>
       </aside>

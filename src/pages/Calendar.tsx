@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Ban, Briefcase, CalendarCheck, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Pencil, Plane, Plus, Save, Trash2, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
@@ -18,7 +19,8 @@ export default function CalendarPage() {
   const { profile, isAdmin, isManager } = useAuth()
   const staff = useStaff()
   const year = new Date().getFullYear()
-  const [tab, setTab] = useState<'cal' | 'mine' | 'approve' | 'balances' | 'holidays'>('cal')
+  const [sp] = useSearchParams()
+  const [tab, setTab] = useState<'cal' | 'mine' | 'approve' | 'balances' | 'holidays'>((sp.get('tab') as any) ?? 'cal')
   const [month, setMonth] = useState(monthStart(new Date()))
   const [sel, setSel] = useState(today())
   const [holidays, setHolidays] = useState<Holiday[]>([])

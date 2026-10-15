@@ -50,53 +50,54 @@ export function PriorityBadge({ p }: { p: string }) {
   return <span className={'pri ' + p}><i />{p}</span>
 }
 
-export interface Option { value: string; label: string }
+export interface Option { value: string; label: string; hint?: string }
 export const opts = (arr: string[]): Option[] => arr.map((v) => ({ value: v, label: v }))
 
-/** The one dropdown used across the whole app (replaces native <select>). */
-export function Select({ value, onChange, options, placeholder = 'Select…', block, disabled }: {
-  value: string; onChange: (v: string) => void; options: Option[]; placeholder?: string; block?: boolean; disabled?: boolean
+/** The one dropdown used across the whole app (replaces native <select>). Search appears automatically for long lists; `hint` shows a count/detail on the right. */
+export function Select({ value, onChange, options, placeholder = 'Select…', block, disabled, searchable }: {
+  value: string; onChange: (v: string) => void; options: Option[]; placeholder?: string; block?: boolean; disabled?: boolean; searchable?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ left: 0, top: 0, bottom: 0, width: 0, up: false })
   const [hi, setHi] = useState(-1)
+  const [q, setQ] = useState('')
   const btn = useRef<HTMLButtonElement>(null)
   const pop = useRef<HTMLDivElement>(null)
+  const typed = useRef({ text: '', t: 0 })
   const sel = options.find((o) => o.value === value)
+  const withSearch = searchable ?? options.length > 8
+  const list = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options
 
   const show = () => {
     const r = btn.current!.getBoundingClientRect()
     const below = window.innerHeight - r.bottom
-    setPos({ left: r.left, top: r.bottom + 4, bottom: window.innerHeight - r.top + 4, width: Math.max(r.width, 170), up: below < 260 && r.top > below })
-    setHi(options.findIndex((o) => o.value === value))
-    setOpen(true)
+    setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - 248)), top: r.bottom + 6, bottom: window.innerHeight - r.top + 6, width: Math.max(r.width, 210), up: below < 300 && r.top > below })
+    setQ(''); setHi(options.findIndex((o) => o.value === value)); setOpen(true)
   }
   const pick = (v: string) => { onChange(v); setOpen(false); btn.current?.focus() }
 
   useEffect(() => {
     if (!open) return
-    const down = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (!pop.current?.contains(t) && !btn.current?.contains(t)) setOpen(false)
-    }
+    const down = (e: MouseEvent) => { const t = e.target as Node; if (!pop.current?.contains(t) && !btn.current?.contains(t)) setOpen(false) }
     const close = (e: Event) => { if (!pop.current?.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', down)
-    window.addEventListener('scroll', close, true)
-    window.addEventListener('resize', close)
+    document.addEventListener('mousedown', down); window.addEventListener('scroll', close, true); window.addEventListener('resize', close)
     return () => { document.removeEventListener('mousedown', down); window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close) }
   }, [open])
-
-  useEffect(() => { // keep highlighted option in view
-    if (open && hi >= 0) pop.current?.querySelector<HTMLElement>(`[data-i="${hi}"]`)?.scrollIntoView({ block: 'nearest' })
-  }, [hi, open])
+  useEffect(() => { if (open && hi >= 0) pop.current?.querySelector<HTMLElement>(`[data-i="${hi}"]`)?.scrollIntoView({ block: 'nearest' }) }, [hi, open])
+  useEffect(() => { if (open && withSearch) setTimeout(() => pop.current?.querySelector('input')?.focus(), 0) }, [open, withSearch])
 
   const key = (e: React.KeyboardEvent) => {
-    if (!open) { if (['ArrowDown', 'ArrowUp'].includes(e.key)) { e.preventDefault(); show() } return }
-    if (e.key === 'Escape') { e.preventDefault(); setOpen(false) }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => Math.min(h + 1, options.length - 1)) }
+    if (!open) { if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); show() } return }
+    if (e.key === 'Escape') { e.preventDefault(); setOpen(false); btn.current?.focus() }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => Math.min(h + 1, list.length - 1)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)) }
-    else if (e.key === 'Enter' && hi >= 0) { e.preventDefault(); pick(options[hi].value) }
+    else if (e.key === 'Enter' && hi >= 0 && list[hi]) { e.preventDefault(); pick(list[hi].value) }
     else if (e.key === 'Tab') setOpen(false)
+    else if (!withSearch && e.key.length === 1) {          // type-ahead: jump to the first option starting with what you type
+      const now = Date.now(); const ty = typed.current
+      ty.text = now - ty.t > 700 ? e.key.toLowerCase() : ty.text + e.key.toLowerCase(); ty.t = now
+      const i = list.findIndex((o) => o.label.toLowerCase().startsWith(ty.text)); if (i >= 0) setHi(i)
+    }
   }
 
   return (
@@ -104,19 +105,26 @@ export function Select({ value, onChange, options, placeholder = 'Select…', bl
       <button type="button" ref={btn} className={'sel-btn' + (block ? ' block' : '')} disabled={disabled} aria-haspopup="listbox" aria-expanded={open}
         onClick={() => (open ? setOpen(false) : show())} onKeyDown={key}>
         <span className={sel ? '' : 'ph'}>{sel ? sel.label : placeholder}</span>
-        <ChevronDown size={16} className="i" />
+        <ChevronDown size={16} className="i sel-chev" />
       </button>
       {open && createPortal(
-        <div ref={pop} className="sel-pop" role="listbox"
+        <div ref={pop} className={'sel-pop' + (pos.up ? ' up' : '')} role="listbox" onKeyDown={key}
           style={{ left: pos.left, width: pos.width, ...(pos.up ? { bottom: pos.bottom } : { top: pos.top }) }}>
-          {options.map((o, i) => (
-            <div key={o.value} data-i={i} role="option" aria-selected={o.value === value}
-              className={'sel-opt' + (i === hi ? ' hi' : '') + (o.value === value ? ' on' : '')}
-              onMouseEnter={() => setHi(i)} onClick={() => pick(o.value)}>
-              <span>{o.label}</span>{o.value === value && <Check size={15} className="i" />}
-            </div>
-          ))}
-          {!options.length && <div className="sel-opt muted">No options</div>}
+          {withSearch && (
+            <div className="sel-search"><Search size={14} /><input placeholder="Search…" value={q} onChange={(e) => { setQ(e.target.value); setHi(0) }} /></div>
+          )}
+          <div className="sel-list">
+            {list.map((o, i) => (
+              <div key={o.value} data-i={i} role="option" aria-selected={o.value === value}
+                className={'sel-opt' + (i === hi ? ' hi' : '') + (o.value === value ? ' on' : '')}
+                onMouseEnter={() => setHi(i)} onClick={() => pick(o.value)}>
+                <span className="sel-check">{o.value === value && <Check size={14} />}</span>
+                <span className="sel-label">{o.label}</span>
+                {o.hint != null && <span className="sel-hint">{o.hint}</span>}
+              </div>
+            ))}
+            {!list.length && <div className="sel-opt muted">No matches</div>}
+          </div>
         </div>,
         document.body,
       )}
@@ -248,5 +256,46 @@ export function Pagination({ pager }: { pager: Pager }) {
         <Select value={String(size)} onChange={(v) => setSize(Number(v))} options={['10', '25', '50', '100'].map((v) => ({ value: v, label: v }))} />
       </div>
     </div>
+  )
+}
+
+/** A button that opens a small list of choices (e.g. "Remind" > Wayne / Reagan / Harvard). */
+export function Menu({ label, icon: Ico, options, onPick, primary, disabled }: {
+  label: string; icon?: LucideIcon; options: Option[]; onPick: (v: string) => void; primary?: boolean; disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ left: 0, top: 0, bottom: 0, up: false })
+  const btn = useRef<HTMLButtonElement>(null)
+  const pop = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const down = (e: MouseEvent) => { const t = e.target as Node; if (!pop.current?.contains(t) && !btn.current?.contains(t)) setOpen(false) }
+    const close = () => setOpen(false)
+    document.addEventListener('mousedown', down); window.addEventListener('scroll', close, true); window.addEventListener('resize', close)
+    return () => { document.removeEventListener('mousedown', down); window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close) }
+  }, [open])
+  const show = () => {
+    const r = btn.current!.getBoundingClientRect()
+    setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - 216)), top: r.bottom + 6, bottom: window.innerHeight - r.top + 6, up: window.innerHeight - r.bottom < 220 })
+    setOpen(true)
+  }
+  return (
+    <>
+      <button type="button" ref={btn} className={'sm' + (primary ? ' primary' : '')} disabled={disabled || !options.length} title={!options.length ? 'Nobody to choose yet' : undefined} onClick={() => (open ? setOpen(false) : show())}>
+        {Ico && <Ico size={14} />}{label}<ChevronDown size={13} />
+      </button>
+      {open && createPortal(
+        <div ref={pop} className={'sel-pop' + (pos.up ? ' up' : '')} style={{ left: pos.left, width: 210, ...(pos.up ? { bottom: pos.bottom } : { top: pos.top }) }}>
+          <div className="sel-list">
+            {options.map((o) => (
+              <div key={o.value} className="sel-opt" onClick={() => { setOpen(false); onPick(o.value) }}>
+                <span className="sel-label">{o.label}</span>{o.hint != null && <span className="sel-hint">{o.hint}</span>}
+              </div>
+            ))}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
