@@ -64,18 +64,19 @@ function SyncStatus() {
       <span className="sync-dot" />
       <div className="sync-text">
         <b>AIGOAL calendar is {live ? 'live' : 'down'}</b>
-        <span>{live ? `Last synced ${syncAgo(last.ran_at)} · runs automatically every 30 minutes` : !last ? 'The automatic sync has not run yet.' : last.error?.includes('rejected') || last.error?.includes('No AIGOAL token') ? 'The AIGOAL token has expired. Paste a new one to bring it back.' : last.error ?? 'The last sync failed.'}</span>
-        <div className="sync-facts">
-          <div><small>Onboarding 1 / 2 / 3</small><b>{lastOk?.onboarding ?? '—'}</b><em>→ Purchase Accounts</em></div>
-          <div><small>Demo and Consultation</small><b>{lastOk?.bookings ?? '—'}</b><em>→ Follow-Up Customers</em></div>
-          <div className={soon || !live ? 'hot' : ''}><small>New token needed</small><b>{!live || (left !== null && left <= 0) ? 'Now' : left === null ? 'When down' : clock(lastOk!.token_expires_at!)}</b><em>{live && left !== null && left > 0 ? `in ${mins(left)}` : 'a token lasts about an hour'}</em></div>
+        <span className="sync-sub">{live ? `Last synced ${syncAgo(last.ran_at)} · runs automatically every 30 minutes` : !last ? 'The automatic sync has not run yet.' : last.error?.includes('rejected') || last.error?.includes('No AIGOAL token') ? 'The AIGOAL token has expired. Paste a new one to bring it back.' : last.error ?? 'The last sync failed.'}</span>
+        <div className="sync-chips">
+          <span className="sync-chip" title="Read only: nothing is written to AIGOAL"><b>{lastOk?.onboarding ?? '—'}</b> onboarding → Purchase Accounts</span>
+          <span className="sync-chip"><b>{lastOk?.bookings ?? '—'}</b> demo / consultation → Follow-Up Customers</span>
+          <span className={'sync-chip' + (soon || !live ? ' hot' : '')}>Token: <b>{!live || (left !== null && left <= 0) ? 'renew now' : left === null ? 'renew when down' : `until ${clock(lastOk!.token_expires_at!)} (${mins(left)})`}</b></span>
         </div>
-        <span className="sync-covers">Read only: nothing is written to AIGOAL.</span>
       </div>
       <button className={live && !soon ? '' : 'primary'} onClick={() => setOpen(true)}><KeyRound size={15} />{live && !soon ? 'Update token' : 'Paste new token'}</button>
     </div>
   )
 }
+
+const hello = () => { const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kuala_Lumpur' })); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening' }
 
 function Attention({ items }: { items: Item[] }) {
   const rank = { red: 0, orange: 1, yellow: 2, '': 3, gray: 4 }
@@ -179,7 +180,7 @@ export default function Home() {
 
   return (
     <>
-      <PageHeader title={`Welcome back, ${profile?.full_name?.split(' ')[0] || 'there'}`} sub={new Date().toLocaleDateString('en-GB', { dateStyle: 'full' })} />
+      <PageHeader title={`${hello()}, ${profile?.full_name?.split(' ')[0] || 'there'}`} sub={new Date().toLocaleDateString('en-GB', { dateStyle: 'full' })} />
 
       {isAdmin && <SyncStatus />}
       <Attention items={isAdmin ? adminItems : myItems} />
