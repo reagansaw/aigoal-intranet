@@ -4,7 +4,7 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
 
 ## One-time setup
 
-1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 006).
+1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 008).
    (Seeds the Sales KPI template from the Winson sheet and the Useful Link / Onboarding knowledge base.)
 2. **Auth** – Authentication → Providers → Email: keep enabled, turn **off** "Allow new users to sign up"
    (accounts are created by Admin/HR inside the app).
@@ -29,6 +29,16 @@ use the app. Admin/HR hand out a temporary password in People; the user replaces
   also deletes). People see the history of their own records inside the edit form; Admin sees the full log under Audit Log.
 - Tables are paginated (10/25/50/100 rows).
 - Admin can change a person's login email under People.
+
+## Calendar and leave
+
+- Month calendar with Malaysia public holidays (national + Kuala Lumpur & Selangor, 2026–2027, editable by Admin under
+  Calendar & Leave > Holidays, since Islamic holiday dates can shift), plus everyone's approved leave/travel and meetings.
+- **Leave:** 8 days per person per year by default. Staff apply for annual leave or business travel; Admin/HR approve or
+  reject. Days are counted by the server (weekends and public holidays are skipped, half days allowed); requests that
+  exceed the remaining balance or overlap another request are refused. Travel does not use leave.
+- **Admin/HR can set entitlement** per person or for everyone at once (Leave balances tab); the same number becomes the
+  default for new staff. Reasons stay private: the team calendar only shows who is away.
 
 ## Roles
 

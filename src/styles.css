@@ -255,3 +255,28 @@ td .sel-btn { padding: .35rem .5rem; font-size: .88rem; min-width: 110px; }
 @media (max-width: 860px) { .mtask { grid-template-columns: 22px 1fr; } .mtask > :nth-child(n+3) { grid-column: 2; } .mt-acts { justify-content: flex-start; } }
 .inbox { border-left: 3px solid var(--brand); }
 .todo .src { font-size: .78rem; color: var(--muted); }
+
+/* ───── calendar ───── */
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.cal-dow { padding: .45rem .5rem; font-size: .72rem; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--surface-2); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.cal-cell { min-height: 108px; padding: .3rem .35rem; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: pointer; display: flex; flex-direction: column; gap: 2px; overflow: hidden; background: var(--surface); }
+.cal-cell:hover { background: var(--surface-2); }
+.cal-cell.out { background: var(--bg); opacity: .6; }
+.cal-cell.weekend:not(.out) { background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
+.cal-cell.sel { outline: 2px solid var(--brand); outline-offset: -2px; }
+.cal-num { font-size: .8rem; font-weight: 600; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; }
+.cal-cell.today .cal-num { background: var(--brand); color: var(--on-brand); }
+.cal-chip { font-size: .72rem; line-height: 1.25; padding: .08rem .4rem; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 550; }
+.cal-chip.hol { background: var(--bad-soft); color: var(--bad); }
+.cal-chip.leave { background: #dbeafe; color: #1d4ed8; }
+.cal-chip.travel { background: #ede9fe; color: #6d28d9; }
+.cal-chip.meet { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+.cal-chip.more { color: var(--muted); background: transparent; }
+@media (prefers-color-scheme: dark) { .cal-chip.leave { background: #1e2a52; color: #93b4ff; } .cal-chip.travel { background: #2a2050; color: #c4b5fd; } }
+@media (max-width: 760px) { .cal-cell { min-height: 70px; } .cal-chip { font-size: .64rem; padding: .05rem .25rem; } .cal-dow { padding: .35rem .2rem; font-size: .62rem; } }
+.legend { display: flex; gap: .9rem; flex-wrap: wrap; align-items: center; }
+.legend label.check { font-size: .82rem; }
+.sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.sw.hol { background: #ef4444; } .sw.leave { background: #3b82f6; } .sw.travel { background: #8b5cf6; } .sw.meet { background: #94a3b8; }
+.day-row { display: flex; gap: .6rem; align-items: center; padding: .45rem 0; border-bottom: 1px solid var(--line); }
+.day-row:last-child { border-bottom: 0; }

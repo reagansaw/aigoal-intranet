@@ -15,6 +15,7 @@ import KnowledgeBase from './pages/KnowledgeBase'
 import People from './pages/People'
 import AuditLog from './pages/AuditLog'
 import Meetings from './pages/Meetings'
+import Calendar from './pages/Calendar'
 
 export default function App() {
   const { session, profile, loading, isAdmin, isManager, signOut } = useAuth()
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="profile" element={<Profile />} />
         <Route path="todos" element={<Todos />} />
         <Route path="kpi" element={<Kpi />} />
+        <Route path="calendar" element={<Calendar />} />
         <Route path="meetings" element={<Meetings />} />
         <Route path="accounts" element={<Accounts />} />
         <Route path="customers" element={<Customers />} />

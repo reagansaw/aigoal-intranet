@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart3, BookOpen, ListChecks, LayoutDashboard, LogOut, Menu, NotebookPen, PhoneCall, ReceiptText, ScrollText, SlidersHorizontal, Sparkles, UserRound, Users } from 'lucide-react'
+import { BarChart3, BookOpen, CalendarDays, ListChecks, LayoutDashboard, LogOut, Menu, NotebookPen, PhoneCall, ReceiptText, ScrollText, SlidersHorizontal, Sparkles, UserRound, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { initials } from './ui'
 
@@ -23,6 +23,7 @@ export default function Layout() {
         <div className="brand"><span className="logo"><Sparkles size={18} /></span>AIGOAL Intranet</div>
         {link('/', 'Home', LayoutDashboard)}
         {link('/todos', 'To-Do', ListChecks)}
+        {link('/calendar', 'Calendar & Leave', CalendarDays)}
         {link('/kpi', 'PDR / KPI', BarChart3)}
         {link('/meetings', 'Meeting Minutes', NotebookPen)}
         {link('/accounts', 'Purchase Accounts', ReceiptText)}

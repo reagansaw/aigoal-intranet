@@ -13,6 +13,7 @@ export interface Profile {
   role: Role
   active: boolean
   must_change_password: boolean
+  leave_entitlement: number
 }
 
 export interface Todo {
@@ -176,3 +177,21 @@ export interface KbArticle {
   url: string | null
   pinned: boolean
 }
+
+export interface Holiday { id: string; holiday_date: string; name: string; region: string; active: boolean }
+export interface TimeOff {
+  id: string
+  user_id: string
+  type: 'leave' | 'travel'
+  start_date: string
+  end_date: string
+  half_day: boolean
+  days: number
+  reason: string | null
+  destination: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  decision_note: string | null
+  created_at: string
+}
+export interface CalendarOff { id: string; user_id: string; full_name: string; type: 'leave' | 'travel'; start_date: string; end_date: string; half_day: boolean; days: number; destination: string | null }
+export interface LeaveFigures { entitlement: number; used: number; pending: number; remaining: number }
