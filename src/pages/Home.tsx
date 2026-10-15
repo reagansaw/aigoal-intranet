@@ -37,34 +37,40 @@ const ago = (iso: string | null) => {
   return `${Math.round(m / 1440)} d ago`
 }
 
+const syncAgo = (iso: string) => { const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 2 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago` }
+
 /** Admin: is the AIGOAL calendar connection live or down? (the automatic sync logs every run) */
 function SyncStatus() {
   const [last, setLast] = useState<{ ran_at: string; ok: boolean; error: string | null } | null | undefined>(undefined)
-  useEffect(() => { supabase.from('sync_log').select('ran_at, ok, error').order('ran_at', { ascending: false }).limit(1).then(({ data }) => setLast(data?.[0] ?? null)) }, [])
   const [open, setOpen] = useState(false)
   const reload = () => supabase.from('sync_log').select('ran_at, ok, error').order('ran_at', { ascending: false }).limit(1).then(({ data }) => setLast(data?.[0] ?? null))
+  useEffect(() => { reload() }, [])
   if (last === undefined) return null
   const stale = !!last && Date.now() - new Date(last.ran_at).getTime() > 2 * 3600e3
   const live = !!last && last.ok && !stale
   return (
-    <div className={'alert' + (live ? ' ok' : '')} style={{ marginBottom: '1rem', alignItems: 'center' }}>
+    <div className={'sync-bar ' + (live ? 'live' : 'down')}>
       {open && <AigoalToken onClose={() => setOpen(false)} onDone={reload} />}
-      <b>AIGOAL calendar: {live ? 'Live' : 'Down'}</b>
-      <span style={{ flex: 1 }}>{live ? `last synced ${ago(last!.ran_at)}` : !last ? 'the automatic sync has not run yet.' : stale ? `no sync for ${ago(last.ran_at).replace(' ago', '')}.` : last.error ?? 'last sync failed.'}</span>
-      <button className="sm" onClick={() => setOpen(true)}><KeyRound size={15} />Update token</button>
+      <span className="sync-dot" />
+      <div className="sync-text">
+        <b>AIGOAL calendar is {live ? 'live' : 'down'}</b>
+        <span>{live ? `Last synced ${syncAgo(last!.ran_at)} · refreshes every 30 minutes` : !last ? 'The automatic sync has not run yet.' : stale ? `No successful sync for ${syncAgo(last.ran_at).replace(' ago', '')}.` : last.error?.includes('rejected') ? 'The AIGOAL token has expired. Paste a new one to bring it back.' : last.error ?? 'The last sync failed.'}</span>
+      </div>
+      <button className={live ? '' : 'primary'} onClick={() => setOpen(true)}><KeyRound size={15} />{live ? 'Update token' : 'Paste new token'}</button>
     </div>
   )
 }
 
 function Attention({ items }: { items: Item[] }) {
-  const shown = items.filter((i) => i.n > 0)
+  const rank = { red: 0, orange: 1, yellow: 2, '': 3, gray: 4 }
+  const shown = items.filter((i) => i.n > 0).sort((x, y) => rank[x.tone] - rank[y.tone] || y.n - x.n)
   return (
     <div className="card">
       <div className="card-head"><h2><ClipboardCheck size={17} className="i" />Needs your attention</h2><span className="muted sm-text">{shown.length ? `${shown.length} item${shown.length > 1 ? 's' : ''}` : ''}</span></div>
       {!shown.length && <Empty icon={ShieldCheck} title="All clear">Nothing is waiting on you right now.</Empty>}
       <div className="attn">
         {shown.map((i) => (
-          <Link key={i.key} to={i.to} className="attn-item">
+          <Link key={i.key} to={i.to} className={'attn-item tone-' + (i.tone || 'brand')}>
             <span className={'stat-ico ' + i.tone}><i.icon size={18} /></span>
             <span className="attn-n">{i.n}</span>
             <span className="attn-l">{i.label}</span>
