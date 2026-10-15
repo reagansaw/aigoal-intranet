@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { ArrowRight, History } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { fieldLabel, when, type AuditEntry } from '../lib/audit'
+const ISO = /^\d{4}-\d\d-\d\dT/
 
 export function ChangeText({ e }: { e: AuditEntry }) {
   if (e.action === 'insert') return <span className="muted">Created this record</span>
   if (e.action === 'delete') return <span className="muted">Deleted this record</span>
-  const v = (x: string | null) => (x === null || x === '' ? <i className="muted">empty</i> : x === 'true' ? 'Yes' : x === 'false' ? 'No' : x)
+  const v = (x: string | null) => (x === null || x === '' ? <i className="muted">empty</i> : x === 'true' ? 'Yes' : x === 'false' ? 'No' : ISO.test(x) ? when(x) : x)
   return (
     <span className="audit-diff">
       <span className="audit-old pre">{v(e.old_value)}</span><ArrowRight size={14} className="i" /><span className="audit-new pre">{v(e.new_value)}</span>

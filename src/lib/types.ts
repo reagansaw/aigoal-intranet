@@ -136,6 +136,8 @@ export interface Customer {
 
 export interface PurchaseAccount {
   id: string
+  develop_started_at: string | null
+  develop_done_at: string | null
   owner_id: string | null
   owner_name: string | null
   product: string

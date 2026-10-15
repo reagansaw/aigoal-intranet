@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart3, BookOpen, CalendarDays, ListChecks, LayoutDashboard, LogOut, Menu, NotebookPen, PhoneCall, ReceiptText, ScrollText, SlidersHorizontal, Sparkles, UserRound, Users } from 'lucide-react'
+import { BarChart3, BookOpen, CalendarDays, ListChecks, LayoutDashboard, LogOut, Menu, NotebookPen, PhoneCall, ReceiptText, ScrollText, SlidersHorizontal, UserRound, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { initials } from './ui'
+import { asset } from '../lib/asset'
 
 export default function Layout() {
   const { profile, isAdmin, isManager, signOut } = useAuth()
@@ -16,11 +17,11 @@ export default function Layout() {
     <div className="shell">
       <div className="topbar">
         <button className="ghost icon" aria-label="Menu" onClick={() => setOpen(true)}><Menu size={20} /></button>
-        AIGOAL Intranet
+        <img src={asset('logo-mark.png')} alt="" className="logo-img" width={28} height={28} />AIGOAL Intranet
       </div>
       <div className={'scrim' + (open ? ' show' : '')} onClick={() => setOpen(false)} />
       <aside className={'side' + (open ? ' open' : '')}>
-        <div className="brand"><span className="logo"><Sparkles size={18} /></span>AIGOAL Intranet</div>
+        <div className="brand"><img src={asset('logo-mark.png')} alt="AIGOAL" className="logo-img" width={36} height={36} />AIGOAL Intranet</div>
         {link('/', 'Home', LayoutDashboard)}
         {link('/todos', 'To-Do', ListChecks)}
         {link('/calendar', 'Calendar & Leave', CalendarDays)}

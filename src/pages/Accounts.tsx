@@ -1,39 +1,35 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { AlertTriangle, BadgeCheck, CalendarSync, MessageSquareQuote, Pencil, Plus, ReceiptText, Save, Trash2, Users, Video } from 'lucide-react'
+import { BadgeCheck, CalendarClock, CalendarSync, Check, Hammer, Pencil, Plus, Receipt, Save, Trash2, Undo2, Video, Wrench } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
+import { useStaff } from '../lib/useStaff'
+import { applyOwner, ownerOptions, ownerValue } from '../lib/owners'
+import { buildPipeline, dayTime, type StageKey } from '../lib/pipeline'
 import Modal from '../components/Modal'
 import AuditTrail from '../components/AuditTrail'
+import { PipelineDots, Stepper } from '../components/Pipeline'
 import { Alert, DatePicker, Empty, Msg, PageHeader, Pagination, SearchBox, Select, Stat, opts, usePaged } from '../components/ui'
-import { applyOwner, ownerOptions, ownerValue } from '../lib/owners'
-import { useStaff } from '../lib/useStaff'
 import type { OnboardingSession, PurchaseAccount } from '../lib/types'
 
 const IN_USE = [{ value: '', label: 'Unknown' }, { value: 'Y', label: 'Yes, in use' }, { value: 'P', label: 'Partially' }, { value: 'N', label: 'Not using' }]
-const STAGES = [{ value: '', label: 'Not set' }, { value: '1', label: 'Stage 1' }, { value: '2', label: 'Stage 2' }, { value: '3', label: 'Stage 3' }]
-const MILESTONES: [keyof PurchaseAccount, string][] = [
-  ['opened_by', 'Account opened by (开户)'], ['docs_provided', 'Docs provided (资料提供)'],
-  ['chatbot_done', 'Chat bot done'], ['landing_page_done', 'Landing page done'],
-  ['optimised', 'Optimised (优化完成)'], ['maintenance', 'Maintenance'],
+const STAGES: { value: string; label: string }[] = [
+  { value: 'all', label: 'All steps' }, { value: 'o1', label: 'Onboarding 1' }, { value: 'dev', label: 'Ready to develop' },
+  { value: 'devdone', label: 'Developing' }, { value: 'o2', label: 'Onboarding 2' }, { value: 'o3', label: 'Onboarding 3' }, { value: 'complete', label: 'Completed' },
 ]
 const blank: Partial<PurchaseAccount> = { product: 'AIGOAL', account_name: '', testimonial: false }
-const ROUNDS: [1 | 2 | 3, string, keyof PurchaseAccount][] = [[1, 'Onboarding 1', 'coaching_1'], [2, 'Onboarding 2', 'coaching_2'], [3, 'Onboarding 3', 'final_coaching']]
-const KL = 'Asia/Kuala_Lumpur'
-const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: KL })
-const fmtFull = (iso: string) => new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: KL })
-const useLabel = (v: string | null) => IN_USE.find((o) => o.value === (v ?? ''))?.label ?? v
 
 export default function Accounts() {
   const { isAdmin } = useAuth()
   const staff = useStaff()
   const [rows, setRows] = useState<PurchaseAccount[]>([])
+  const [sessions, setSessions] = useState<OnboardingSession[]>([])
   const [q, setQ] = useState('')
   const [stage, setStage] = useState('all')
-  const [use, setUse] = useState('all')
-  const [sales, setSales] = useState('all')
+  const [issues, setIssues] = useState('all')
+  const [who, setWho] = useState('all')
   const [edit, setEdit] = useState<Partial<PurchaseAccount> | null>(null)
   const [err, setErr] = useState('')
-  const [sessions, setSessions] = useState<OnboardingSession[]>([])
+  const [toast, setToast] = useState('')
   const [sync, setSync] = useState<{ token: string; busy: boolean; msg: string; unmatched: string[] } | null>(null)
 
   const load = async () => {
@@ -44,17 +40,22 @@ export default function Accounts() {
   }
   useEffect(() => { load() }, [])
 
-  const salesList = useMemo(() => [...new Set(rows.map((r) => r.sales).filter(Boolean))] as string[], [rows])
-  const shown = rows.filter((r) =>
-    (stage === 'all' || (r.onboarding_stage ?? '') === stage) && (use === 'all' || (r.in_use ?? '') === use) && (sales === 'all' || r.sales === sales) &&
-    (!q || [r.account_name, r.owner_name, r.contact_person, r.phone, r.email, r.industry, r.remarks, r.action_plan].join(' ').toLowerCase().includes(q.toLowerCase())))
+  const withP = useMemo(() => rows.map((r) => ({ r, p: buildPipeline(r, sessions) })), [rows, sessions])
+  const count = (...keys: StageKey[]) => withP.filter((x) => keys.includes(x.p.stage)).length
+  const owners = useMemo(() => [...new Set(rows.map((r) => r.owner_name).filter(Boolean))] as string[], [rows])
+  const shown = withP.filter(({ r, p }) =>
+    (stage === 'all' || (stage === 'o23' ? ['o2', 'o3'].includes(p.stage) : p.stage === stage)) &&
+    (issues === 'all' || !!r.issues) && (who === 'all' || r.owner_name === who) &&
+    (!q || [r.account_name, r.contact_person, r.phone, r.email, r.industry, r.issues, r.action_plan, r.remarks, r.owner_name].join(' ').toLowerCase().includes(q.toLowerCase())))
+  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, stage, issues, who]))
+  const tile = (key: string) => setStage(stage === key ? 'all' : key)
 
-  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, stage, use, sales]))
-  const ownersAll = useMemo(() => rows.map((r) => r.owner_name ?? ''), [rows])
+  const act = async (id: string, action: 'start' | 'done' | 'reset') => {
+    const { error } = await supabase.rpc('set_develop', { account_id: id, action })
+    if (error) return setToast(error.message)
+    setToast(''); await load()
+  }
 
-  // latest non-cancelled booking per round for an account
-  const roundOf = (accountId: string, round: number) =>
-    sessions.filter((x) => x.account_id === accountId && x.round === round && x.status !== 'cancelled').sort((a, b) => b.start_at.localeCompare(a.start_at))[0]
   const runSync = async () => {
     if (!sync) return
     setSync({ ...sync, busy: true, msg: '', unmatched: [] })
@@ -68,7 +69,7 @@ export default function Accounts() {
 
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!edit) return
-    const { id, ...rest } = edit as PurchaseAccount
+    const { id, develop_started_at, develop_done_at, ...rest } = edit as PurchaseAccount
     const payload = { ...rest, purchase_date: rest.purchase_date || null, deadline: rest.deadline || null, updated_at: new Date().toISOString() }
     const { error } = id ? await supabase.from('purchase_accounts').update(payload).eq('id', id) : await supabase.from('purchase_accounts').insert(payload)
     if (error) return setErr(error.message)
@@ -84,101 +85,136 @@ export default function Accounts() {
     </div>
   )
 
+  // pipeline of the account being edited (live from the saved row, so button clicks refresh it)
+  const cur = edit?.id ? withP.find((x) => x.r.id === edit.id) : undefined
+  const nextBooking = cur && ['o1', 'o2', 'o3'].includes(cur.p.stage)
+    ? sessions.filter((s) => s.account_id === cur.r.id && s.round === Number(cur.p.stage[1]) && s.status !== 'cancelled' && s.status !== 'completed').sort((a, b) => b.start_at.localeCompare(a.start_at))[0]
+    : undefined
+
   return (
     <>
-      <PageHeader title="Purchase Accounts" sub={isAdmin ? 'All customers who bought AIGOAL, and where they are in onboarding.' : 'Your customers who bought AIGOAL, and where they are in onboarding.'}>
+      <PageHeader title="Purchase Accounts" sub={isAdmin ? 'Every customer who bought AIGOAL and where they are in the onboarding flow.' : 'Your customers who bought AIGOAL and where they are in the onboarding flow.'}>
         {isAdmin && <button onClick={() => setSync({ token: '', busy: false, msg: '', unmatched: [] })}><CalendarSync size={16} />Sync AIGOAL calendar</button>}
         <button className="primary" onClick={() => { setEdit({ ...blank }); setErr('') }}><Plus size={16} />Add account</button>
       </PageHeader>
-      <div className="grid">
-        <Stat icon={Users} label="Total accounts" value={rows.length} />
-        <Stat icon={BadgeCheck} tone="green" label="In use" value={rows.filter((r) => r.in_use === 'Y').length} />
-        <Stat icon={AlertTriangle} tone="orange" label="With open issues" value={rows.filter((r) => r.issues).length} />
-        <Stat icon={MessageSquareQuote} tone="yellow" label="Testimonials" value={rows.filter((r) => r.testimonial).length} />
+
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+        <Stat icon={CalendarClock} label="Onboarding 1" value={count('o1')} active={stage === 'o1'} onClick={() => tile('o1')} />
+        <Stat icon={Hammer} tone="orange" label="Ready to develop" value={count('dev')} active={stage === 'dev'} onClick={() => tile('dev')} />
+        <Stat icon={Wrench} tone="yellow" label="Developing" value={count('devdone')} active={stage === 'devdone'} onClick={() => tile('devdone')} />
+        <Stat icon={CalendarClock} tone="gray" label="Onboarding 2 / 3" value={count('o2', 'o3')} active={stage === 'o23'} onClick={() => tile('o23')} />
+        <Stat icon={BadgeCheck} tone="green" label="Completed" value={count('complete')} active={stage === 'complete'} onClick={() => tile('complete')} />
       </div>
+
       <div className="row" style={{ marginBottom: '1rem' }}>
-        <SearchBox value={q} onChange={setQ} placeholder="Search name, phone, industry, notes…" />
-        <Select value={stage} onChange={setStage} options={[{ value: 'all', label: 'All stages' }, ...STAGES.slice(1)]} />
-        <Select value={use} onChange={setUse} options={[{ value: 'all', label: 'Any usage' }, ...IN_USE]} />
-        <Select value={sales} onChange={setSales} options={[{ value: 'all', label: 'All sales' }, ...opts(salesList)]} />
-        <span className="muted sm-text">{shown.length} shown</span>
+        <SearchBox value={q} onChange={setQ} placeholder="Search customer, contact, phone, notes…" />
+        <Select value={stage === 'o23' ? 'all' : stage} onChange={setStage} options={STAGES} />
+        <Select value={issues} onChange={setIssues} options={[{ value: 'all', label: 'With or without issues' }, { value: 'yes', label: 'Only with open issues' }]} />
+        {isAdmin && <Select value={who} onChange={setWho} options={[{ value: 'all', label: 'Everyone' }, ...opts(owners)]} />}
+        <span className="muted sm-text">{shown.length} of {rows.length}</span>
+        <Msg text={toast} />
       </div>
+
       <div className="card flush table-wrap">
         <table>
-          <thead><tr><th>Account</th><th>Name</th><th>Email</th><th>Phone</th><th>Industry</th><th>Purchased</th><th>Stage</th><th>Onboarding</th><th>In use</th><th>{isAdmin ? 'Assigned to' : 'Sales'}</th><th>Issue / next action</th><th>Deadline</th><th></th></tr></thead>
+          <thead><tr><th>Customer</th><th>Contact</th><th>Onboarding flow</th>{isAdmin && <th>Assigned to</th>}<th>Issue / next action</th><th style={{ width: 150 }}></th></tr></thead>
           <tbody>
-            {pageRows.map((r) => (
+            {pageRows.map(({ r, p }) => (
               <tr key={r.id} className="click" onClick={() => { setEdit(r); setErr('') }}>
-                <td><div className="cell-title">{r.account_name}</div><div className="muted sm-text">{r.category}</div></td>
-                <td className="cell-title">{r.contact_person || <span className="muted">—</span>}</td>
-                <td>{r.email ? <a href={`mailto:${r.email}`} onClick={(e) => e.stopPropagation()}>{r.email}</a> : <span className="muted">—</span>}</td>
-                <td className="nowrap">{r.phone ? <a href={`https://wa.me/${r.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a> : <span className="muted">—</span>}</td>
-                <td>{r.industry}</td><td className="nowrap">{r.purchase_date}</td>
-                <td className="nowrap">{r.onboarding_stage && <span className="tag brand">Stage {r.onboarding_stage}</span>}</td>
-                <td className="nowrap">
-                  {ROUNDS.map(([n, , legacy]) => {
-                    const x = roundOf(r.id, n)
-                    return <div key={n} className="sm-text">{x ? <><span className={'tag ' + (x.status === 'completed' ? 'good' : 'brand')} style={{ marginRight: 4 }}>{n}</span>{fmtDay(x.start_at)}</> : (r[legacy] ? <span className="muted"><span className="tag" style={{ marginRight: 4 }}>{n}</span>{String(r[legacy])}</span> : null)}</div>
-                  })}
+                <td style={{ minWidth: 190 }}>
+                  <div className="cell-title">{r.account_name}</div>
+                  <div className="muted sm-text">{[r.industry, r.purchase_date && new Date(r.purchase_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })].filter(Boolean).join(' · ')}</div>
                 </td>
-                <td>{r.in_use && <span className={'tag ' + (r.in_use === 'Y' ? 'good' : r.in_use === 'N' ? 'warn' : '')}>{useLabel(r.in_use)}</span>}</td>
-                <td>{isAdmin ? (r.owner_name || <span className="muted">Unassigned</span>) : (r.sales ?? r.closed_by)}</td>
-                <td style={{ maxWidth: 320 }}>{r.issues && <div className="cell-title">{r.issues}</div>}<div className="muted sm-text pre">{r.action_plan}</div></td>
-                <td className="nowrap">{r.deadline}</td>
-                <td><Pencil size={15} className="i" style={{ color: 'var(--muted)' }} /></td>
+                <td style={{ minWidth: 200 }}>
+                  <div className="stack-sm">
+                    <span className="cell-title">{r.contact_person || <span className="muted">—</span>}</span>
+                    {r.email && <a className="sm-text" href={`mailto:${r.email}`} onClick={(e) => e.stopPropagation()}>{r.email}</a>}
+                    {r.phone && <a className="sm-text" href={`https://wa.me/${r.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}
+                  </div>
+                </td>
+                <td style={{ minWidth: 190 }}>
+                  <PipelineDots p={p} />
+                  <div className={'stage-label ' + p.stage}>{p.stageLabel}{p.stageSub && <span className="muted sm-text" style={{ fontWeight: 400 }}> · {p.stageSub}</span>}</div>
+                </td>
+                {isAdmin && <td>{r.owner_name ? <span className="tag">{r.owner_name}</span> : <span className="muted">Unassigned</span>}</td>}
+                <td style={{ maxWidth: 300 }}>
+                  {r.issues && <div className="cell-title clamp2">{r.issues}</div>}
+                  {r.action_plan && <div className="muted sm-text clamp2">{r.action_plan}</div>}
+                </td>
+                <td className="nowrap" onClick={(e) => e.stopPropagation()}>
+                  {p.stage === 'dev' && <button className="sm primary" onClick={() => act(r.id, 'start')}><Hammer size={14} />Develop</button>}
+                  {p.stage === 'devdone' && <button className="sm primary" onClick={() => act(r.id, 'done')}><Check size={14} />Develop Done</button>}
+                  <button className="ghost icon sm" aria-label="Open" onClick={() => { setEdit(r); setErr('') }}><Pencil size={15} /></button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {!shown.length && <Empty icon={ReceiptText} title="No accounts found">{isAdmin ? 'Try clearing the filters.' : 'No purchase accounts are assigned to you yet.'}</Empty>}
+        {!shown.length && <Empty icon={Receipt} title="No accounts found">{isAdmin ? 'Try clearing the filters.' : 'No purchase accounts are assigned to you yet.'}</Empty>}
         <Pagination pager={pager} />
       </div>
 
       {edit && (
-        <Modal title={edit.id ? edit.account_name || 'Account' : 'Add account'} onClose={() => setEdit(null)}>
+        <Modal wide title={edit.account_name || 'New account'} onClose={() => setEdit(null)}>
+          {cur && (
+            <>
+              <Stepper p={cur.p} />
+              <div className="card" style={{ background: 'var(--surface-2)', boxShadow: 'none' }}>
+                <div className="row between">
+                  <div>
+                    <b>{cur.p.stageLabel}</b>
+                    <div className="muted sm-text">
+                      {cur.p.stage === 'dev' && 'Onboarding 1 is done. Click Develop when you start building.'}
+                      {cur.p.stage === 'devdone' && `Development started ${cur.r.develop_started_at ? dayTime(cur.r.develop_started_at) : ''}. Click Develop Done when it is ready.`}
+                      {cur.p.stage === 'o1' && 'Waiting for Onboarding 1 (booked in the AIGOAL calendar).'}
+                      {cur.p.stage === 'o2' && 'Development is done. Book Onboarding 2 in the AIGOAL calendar.'}
+                      {cur.p.stage === 'o3' && 'Book Onboarding 3 in the AIGOAL calendar.'}
+                      {cur.p.stage === 'complete' && 'All onboarding steps are complete.'}
+                    </div>
+                    {nextBooking && <div className="sm-text" style={{ marginTop: '.3rem' }}>Booked: <b>{dayTime(nextBooking.start_at)}</b>{nextBooking.host && ` with ${nextBooking.host}`} {nextBooking.zoom_url && <a href={nextBooking.zoom_url} target="_blank" rel="noreferrer"><Video size={13} className="i" /> Zoom</a>}</div>}
+                  </div>
+                  <div className="row">
+                    {cur.p.stage === 'dev' && <button type="button" className="primary" onClick={() => act(cur.r.id, 'start')}><Hammer size={16} />Develop</button>}
+                    {cur.p.stage === 'devdone' && <button type="button" className="primary" onClick={() => act(cur.r.id, 'done')}><Check size={16} />Develop Done</button>}
+                    {isAdmin && cur.p.stage === 'o1' && <button type="button" onClick={() => act(cur.r.id, 'start')}><Hammer size={16} />Start develop anyway</button>}
+                    {isAdmin && (cur.r.develop_started_at || cur.r.develop_done_at) && <button type="button" className="ghost" onClick={() => confirm('Undo the Develop steps for this account?') && act(cur.r.id, 'reset')}><Undo2 size={16} />Undo develop</button>}
+                  </div>
+                </div>
+              </div>
+              <Msg text={toast} />
+            </>
+          )}
+
           <form onSubmit={save}>
-            <h2>Account</h2>
+            <h2>Customer</h2>
             <div className="form-grid">
               <div className="field"><label>System / company name</label><input required value={edit.account_name ?? ''} onChange={(e) => set('account_name', e.target.value)} /></div>
-              {txt('contact_person', 'Contact person')}{txt('phone', 'Phone')}{txt('email', 'Register email')}{txt('industry', 'Industry')}{txt('category', 'Category')}
-              <div className="field"><label>Purchase date</label><DatePicker value={edit.purchase_date ?? ''} onChange={(v) => set('purchase_date', v)} /></div>
-              {isAdmin && <div className="field"><label>Assigned to (who sees this account)</label><Select block value={ownerValue(edit)} onChange={(v) => setEdit(applyOwner(edit, v, staff))} options={ownerOptions(staff, ownersAll)} /></div>}
-              {txt('closed_by', 'Closed via (成交)')}{txt('sales', 'Sales')}
-              <div className="field"><label>Onboarding stage</label><Select block value={edit.onboarding_stage ?? ''} onChange={(v) => set('onboarding_stage', v || null)} options={STAGES} /></div>
-              <div className="field"><label>In use</label><Select block value={edit.in_use ?? ''} onChange={(v) => set('in_use', v || null)} options={IN_USE} /></div>
-              {txt('ai_builder', 'AI builder')}{txt('ai_builder_2', 'AI builder 2')}{txt('whatsapp_group', 'WhatsApp group link')}
+              {txt('industry', 'Industry')}
+              <div className="field"><label>Purchase date</label><DatePicker value={edit.purchase_date} onChange={(v) => set('purchase_date', v)} /></div>
+              {isAdmin && <div className="field"><label>Assigned to (who sees this account)</label><Select block value={ownerValue(edit)} onChange={(v) => setEdit(applyOwner(edit, v, staff))} options={ownerOptions(staff, owners)} /></div>}
             </div>
-            <label className="check" style={{ marginBottom: '1rem' }}><input type="checkbox" checked={edit.testimonial ?? false} onChange={(e) => set('testimonial', e.target.checked)} />Testimonial received</label>
+
+            <h2>Contact</h2>
+            <div className="form-grid">{txt('contact_person', 'Name')}{txt('email', 'Email')}{txt('phone', 'Phone')}{txt('whatsapp_group', 'WhatsApp group link')}</div>
 
             <h2>Follow-up</h2>
-            <div className="form-grid">{txt('remarks', 'Remarks', true)}{txt('issues', 'Issues', true)}{txt('action_plan', 'Next action', true)}
-              <div className="field"><label>Deadline</label><DatePicker value={edit.deadline ?? ''} onChange={(v) => set('deadline', v)} /></div>
+            <div className="form-grid">
+              {txt('issues', 'Issues', true)}{txt('action_plan', 'Next action', true)}
+              <div className="field"><label>Deadline</label><DatePicker value={edit.deadline} onChange={(v) => set('deadline', v)} /></div>
+              {txt('remarks', 'Remarks', true)}
             </div>
 
-            {edit.id && (
-              <>
-                <h2>Onboarding sessions <span className="muted sm-text" style={{ fontWeight: 400 }}>from the AIGOAL calendar (read-only)</span></h2>
-                <div style={{ marginBottom: '1rem' }}>
-                  {ROUNDS.map(([n, label, legacy]) => {
-                    const x = roundOf(edit.id!, n)
-                    return (
-                      <div key={n} className="day-row">
-                        <b style={{ width: 110 }}>{label}</b>
-                        {x ? <>
-                          <span>{fmtFull(x.start_at)}</span>
-                          <span className={'tag ' + (x.status === 'completed' ? 'good' : 'brand')}>{x.status === 'completed' ? 'Completed' : 'Booked'}</span>
-                          {x.host && <span className="muted sm-text">with {x.host}</span>}
-                          {x.zoom_url && x.status !== 'completed' && <a href={x.zoom_url} target="_blank" rel="noreferrer" className="row sm-text" style={{ gap: '.25rem' }}><Video size={14} />Zoom</a>}
-                        </> : <span className="muted">{(edit[legacy] as string) ? `Not in calendar. Sheet record: ${edit[legacy]}` : 'Not booked yet'}</span>}
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-            <h2>Progress timeline</h2>
-            <div className="form-grid">{MILESTONES.map(([k, l]) => txt(k, l))}</div>
-            {err && <div className="alert">{err}</div>}
+            <details className="more">
+              <summary>More details</summary>
+              <div className="form-grid">
+                {txt('category', 'Category')}{txt('closed_by', 'Closed via (成交)')}{txt('sales', 'Sales')}
+                <div className="field"><label>In use</label><Select block value={edit.in_use ?? ''} onChange={(v) => set('in_use', v || null)} options={IN_USE} /></div>
+                {txt('ai_builder', 'AI builder')}{txt('ai_builder_2', 'AI builder 2')}
+              </div>
+              <label className="check"><input type="checkbox" checked={edit.testimonial ?? false} onChange={(e) => set('testimonial', e.target.checked)} />Testimonial received</label>
+            </details>
+
+            {err && <Alert text={err} />}
             <div className="modal-foot">
               <button className="primary"><Save size={16} />Save</button>
               {edit.id && isAdmin && <button type="button" className="danger" onClick={del}><Trash2 size={16} />Delete</button>}

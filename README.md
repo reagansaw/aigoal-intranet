@@ -4,7 +4,7 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
 
 ## One-time setup
 
-1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 009).
+1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 010).
    (Seeds the Sales KPI template from the Winson sheet and the Useful Link / Onboarding knowledge base.)
 2. **Auth** – Authentication → Providers → Email: keep enabled, turn **off** "Allow new users to sign up"
    (accounts are created by Admin/HR inside the app).
@@ -38,6 +38,14 @@ a 3rd-round/final service = Onboarding 3. Admin clicks **Sync AIGOAL calendar** 
 AIGOAL API token (it expires in about an hour and is not stored). Bookings are matched to accounts by phone, then email.
 Deploy once with `supabase functions deploy sync-onboarding`. Set the function secret `AIGOAL_API_TOKEN` to a long-lived
 key if AIGOAL offers one, to sync without pasting a token.
+
+## Onboarding flow
+
+Purchase Accounts follow one flow: **Onboarding 1 > Develop > Develop Done > Onboarding 2 > Onboarding 3**. Onboarding 1/2/3
+come from the AIGOAL calendar (services "AIGOAL Onboarding", "AIGOAL 2nd Round Onboarding", "AIGOAL Onboarding 3");
+**Develop** and **Develop Done** are one-click buttons (only the account's owner or Admin; time and person are recorded by the
+server and appear in the change history; Admin can undo). Accounts imported from the old sheet use its chatbot / landing page /
+optimised records as develop progress.
 
 ## Calendar and leave
 

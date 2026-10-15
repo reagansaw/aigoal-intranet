@@ -23,6 +23,7 @@ export const FIELD_LABELS: Record<string, string> = {
   not_interested_reason: 'Not interested: reason', team_size: 'Team size', monthly_revenue: 'Monthly revenue', daily_leads: 'Daily leads', leads_per_day: 'Leads per day',
   reply_method: 'How they reply', missed_leads: 'Missed leads', channels: 'Lead channels', other_courses: 'Other courses', result: 'Follow-up result',
   closed_date: 'Closed date', prospect: 'Prospect', notes: 'Notes', purchased: 'Purchased', aigoal_status: 'App status', aigoal_tags: 'App tags', aigoal_contact_id: 'App contact',
+  develop_started_at: 'Develop started', develop_done_at: 'Develop done',
   status: 'Status', new_status: 'New status', owner_user: 'User', expiry_date: 'Expiry date', followup_notes: 'Follow-up notes',
 }
 export const fieldLabel = (f: string | null) => (f ? FIELD_LABELS[f] ?? f : '')

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { BarChart3, BookOpen, ListChecks, LogIn, Sparkles } from 'lucide-react'
+import { BarChart3, BookOpen, ListChecks, LogIn } from 'lucide-react'
+import { asset } from '../lib/asset'
 import { hasKey, supabase } from '../lib/supabase'
 import { Alert } from '../components/ui'
 
@@ -20,7 +21,7 @@ export default function Login() {
   return (
     <div className="auth">
       <div className="auth-art">
-        <div className="brand" style={{ padding: 0 }}><span className="logo"><Sparkles size={18} /></span>AIGOAL</div>
+        <img src={asset('logo-full.png')} alt="AIGOAL" className="auth-logo" />
         <div>
           <h2>Everything your team needs, in one place.</h2>
           <p>Daily tasks, monthly performance reviews, customer follow-ups and company know-how.</p>
@@ -34,6 +35,7 @@ export default function Login() {
       </div>
       <div className="auth-form">
         <form onSubmit={submit}>
+          <img src={asset('logo-mark.png')} alt="AIGOAL" className="auth-mark" width={56} height={56} />
           <h1>Sign in</h1>
           <p className="muted" style={{ marginBottom: '1.5rem' }}>Use your company email and password.</p>
           {!hasKey && <Alert text="VITE_SUPABASE_ANON_KEY is not set. See README." />}
