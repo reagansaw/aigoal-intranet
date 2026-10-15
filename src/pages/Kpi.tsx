@@ -31,7 +31,8 @@ const wednesdays = (month: string) => {
 
 export default function Kpi() {
   const { profile, isManager } = useAuth()
-  const staff = useStaff()
+  const allStaff = useStaff()
+  const staff = useMemo(() => allStaff.filter((s) => s.role !== 'admin'), [allStaff]) // KPI is for non-admin staff only
   const [uid, setUid] = useState(profile!.id)
   const [month, setMonth] = useState(monthStart(new Date()))
   const [templates, setTemplates] = useState<KpiTemplate[]>([])
@@ -48,6 +49,7 @@ export default function Kpi() {
 
   const tpl = templates.find((t) => t.id === review?.template_id)
   const editable = isManager && !review?.locked
+  useEffect(() => { if (staff.length && !staff.some((s) => s.id === uid) && profile!.role === 'admin') setUid(staff[0].id) }, [staff])
   const person = staff.find((s) => s.id === uid)
 
   useEffect(() => {

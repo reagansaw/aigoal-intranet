@@ -206,7 +206,7 @@ export default function Home() {
             <table>
               <thead><tr><th>Person</th><th>To-do</th><th>Accounts</th><th>Leads</th><th>Last seen</th></tr></thead>
               <tbody>
-                {ov.staff.map((s) => (
+                {ov.staff.filter((s) => !(s.role === 'admin' && !s.title)).map((s) => (
                   <tr key={s.id}>
                     <td style={{ minWidth: 180 }}>
                       <div className="row" style={{ flexWrap: 'nowrap', gap: '.6rem' }}>
