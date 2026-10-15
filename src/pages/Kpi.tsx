@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { calcPayout } from '../lib/kpi'
 import { loadUserPayouts, type UserPayout } from '../lib/kpiLoad'
-import { addMonths, iso, money, monthLabel, monthStart } from '../lib/util'
+import { addMonths, iso, money, monthLabel, monthStart, today } from '../lib/util'
 import { DatePicker, Empty, Msg, NumberInput, PageHeader, Select, Stat } from '../components/ui'
 import type { KpiChecklistRow, KpiItem, KpiOrder, KpiReview, KpiScore, KpiTemplate, KpiWeekly } from '../lib/types'
 
@@ -328,13 +328,17 @@ export default function Kpi() {
           <div className="card flush table-wrap">
             <div className="card-head" style={{ padding: '1rem 1.25rem 0' }}><h2>DAILY TASK</h2><span className="muted sm-text">From the To-Do list · ticked when the task is marked done</span></div>
             <table className="daily">
-              <thead><tr><th style={{ minWidth: 200 }}>Task</th>{Array.from({ length: daysInMonth }, (_, d) => <th key={d} className="num" style={{ padding: '.5rem .3rem', textAlign: 'center' }}>{d + 1}</th>)}</tr></thead>
+              <thead><tr><th className="daily-task">Task</th>{Array.from({ length: daysInMonth }, (_, d) => {
+                const dt = new Date(new Date(month + 'T00:00:00').getFullYear(), new Date(month + 'T00:00:00').getMonth(), d + 1)
+                const wk = dt.getDay() === 0 || dt.getDay() === 6
+                return <th key={d} className={'daily-day' + (wk ? ' wk' : '') + (dt.toLocaleDateString('en-CA') === today() ? ' now' : '')} title={dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}>{d + 1}</th>
+              })}</tr></thead>
               <tbody>
                 {dailyRows.map((row) => (
                   <tr key={row.label}>
-                    <td>{row.label}</td>
+                    <td className="daily-task">{row.label}</td>
                     {Array.from({ length: daysInMonth }, (_, d) => (
-                      <td key={d} style={{ textAlign: 'center', padding: '.4rem .3rem' }}>{row.days[d] ? <Check size={14} style={{ color: 'var(--ok)' }} /> : ''}</td>
+                      <td key={d} className="daily-cell">{row.days[d] ? <Check size={14} style={{ color: 'var(--ok)' }} /> : ''}</td>
                     ))}
                   </tr>
                 ))}
