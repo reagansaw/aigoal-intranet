@@ -4,7 +4,7 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
 
 ## One-time setup
 
-1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 017).
+1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 022).
    (Seeds the Sales KPI template from the Winson sheet and the Useful Link / Onboarding knowledge base.)
 2. **Auth** – Authentication → Providers → Email: keep enabled, turn **off** "Allow new users to sign up"
    (accounts are created by Admin/HR inside the app).
@@ -72,6 +72,21 @@ Menu for non-admin: Home, To-Do, PDR/KPI, Meeting Minutes, Purchase Accounts, Fo
   phone and email are locked (Admin only). Status: Pending Management (remark required) / Pending Demo / Invite Webinar.
   A webinar's leads appear the day after it happens (21 Oct shows from 22 Oct).
 - **Admin dashboard (Home):** what needs attention plus every staff member's status.
+
+## Customer details and statuses
+
+- **Purchase account – Customer block:** the AI Builder can change only the company name; Admin changes everything. Category is a
+  fixed list (AIGOAL Conversion, Both, AI Studio, Marketing Services). One **Assigned sales** field (no separate Sales).
+  WhatsApp group link opens the chat; **Testimonial** counts as received only when a Google Drive video link is saved.
+- **Lead statuses:** Pending Management (reason required), Pending Demo (who + date + time required; that person can see the lead),
+  Invite Webinar (webinar date required), Potential (reason required), Close Deal (recorded under the login of whoever clicks it,
+  server-stamped, with the date). Each lead has a **Sales follow-up** timeline (follow-up / call / remark, signed and dated).
+
+## PDR / KPI = the Winson Oct 2026 sheet
+
+Scorecard (5 rows), 审核指标, 营销超额奖励 (附件B), weekly raw data (附件D), 10-item checklist, order-by-order commission (附件C),
+Daily Task grid and the 总览 table are all in the app and editable per template. The displayed standards (25/15/20/10/30 points)
+are used; they match the sheet's totals, although some of the sheet's own cell formulas award different points.
 
 ## Roles (original table)
 

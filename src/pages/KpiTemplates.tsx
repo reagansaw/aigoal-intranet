@@ -10,6 +10,7 @@ const textToBands = (t: string): Band[] =>
     const [threshold, points] = p.split(':').map(Number)
     return { threshold, points }
   }).filter((b) => !Number.isNaN(b.threshold) && !Number.isNaN(b.points))
+const SOURCE = [{ value: 'manual', label: 'Typed by reviewer' }, { value: 'attendance', label: 'Weekly attendance' }, { value: 'leadmagnet', label: 'Weekly lead magnet' }, { value: 'cpl', label: 'Ad spend ÷ leads (CPL)' }, { value: 'checklist', label: 'Checklist result' }]
 const DIR = [{ value: 'higher', label: 'Higher is better' }, { value: 'lower', label: 'Lower is better' }, { value: 'manual', label: 'Manual score' }]
 
 export default function KpiTemplates() {
@@ -83,6 +84,7 @@ export default function KpiTemplates() {
               <div className="field"><label>Currency</label><input value={sel.currency} onChange={(e) => setT('currency', e.target.value)} /></div>
               <div className="field"><label>Fixed monthly fee</label><NumberInput value={sel.base_fee} onChange={(n) => setT('base_fee', n ?? 0)} /></div>
               <div className="field"><label>Bonus per base point</label><NumberInput value={sel.rate_per_point} onChange={(n) => setT('rate_per_point', n ?? 0)} /></div>
+              <div className="field"><label>Over-achievement bonus cap (blank = none)</label><NumberInput value={sel.max_over_bonus} onChange={(n) => setT('max_over_bonus', n)} /></div>
               <div className="field"><label>Base bonus cap (blank = none)</label><NumberInput value={sel.max_base_bonus} onChange={(n) => setT('max_base_bonus', n)} /></div>
               <div className="field"><label>Min score to unlock extra bonus</label><NumberInput value={sel.qualify_score} onChange={(n) => setT('qualify_score', n ?? 0)} /></div>
               <div className="field"><label>Commission rate (0.10 = 10%)</label><NumberInput value={sel.commission_rate} onChange={(n) => setT('commission_rate', n ?? 0)} /></div>
@@ -95,7 +97,7 @@ export default function KpiTemplates() {
           <div className="card flush table-wrap">
             <div className="card-head"><h2>Scorecard rows</h2></div>
             <table>
-              <thead><tr><th>Name</th><th>Standard (text)</th><th>Max pts</th><th>Target</th><th>Unit</th><th>Scoring</th><th>Bands (threshold:points, …)</th><th>% of target?</th><th>Bonus at %</th><th>Bonus amt</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Standard (text)</th><th>Max pts</th><th>Target</th><th>Unit</th><th>Scoring</th><th>Bands (threshold:points, …)</th><th>% of target?</th><th>Bonus at %</th><th>Bonus amt</th><th>Bonus needs ads ≤ budget</th><th>Data comes from</th><th>Month note</th><th></th></tr></thead>
               <tbody>
                 {items.map((i) => (
                   <tr key={i.id}>
@@ -109,6 +111,9 @@ export default function KpiTemplates() {
                     <td><input type="checkbox" checked={i.pct_of_target} onChange={(e) => setI(i.id, 'pct_of_target', e.target.checked)} /></td>
                     <td><NumberInput value={i.bonus_threshold_pct} onChange={(n) => setI(i.id, 'bonus_threshold_pct', n)} /></td>
                     <td><NumberInput value={i.bonus_amount} onChange={(n) => setI(i.id, 'bonus_amount', n)} /></td>
+                    <td><input type="checkbox" checked={i.bonus_needs_budget} onChange={(e) => setI(i.id, 'bonus_needs_budget', e.target.checked)} /></td>
+                    <td style={{ minWidth: 170 }}><Select block value={i.source} onChange={(v) => setI(i.id, 'source', v)} options={SOURCE} /></td>
+                    <td><input value={i.note ?? ''} onChange={(e) => setI(i.id, 'note', e.target.value)} /></td>
                     <td><button className="ghost icon sm danger" aria-label="Delete row" onClick={() => delItem(i.id)}><Trash2 size={15} /></button></td>
                   </tr>
                 ))}
@@ -116,6 +121,22 @@ export default function KpiTemplates() {
             </table>
             <div style={{ padding: '.8rem 1.25rem' }}><button onClick={addItem}><Plus size={16} />Add row</button>
             <p className="muted sm-text">“Higher”: highest band whose threshold ≤ achieved wins. “Lower”: lowest band whose threshold ≥ achieved wins (e.g. CPL). With “% of target” thresholds are compared to achieved ÷ target.</p></div>
+          </div>
+          <div className="card">
+            <div className="card-head"><h2>Marketing Strategy Checklist items</h2><button className="sm" onClick={() => setT('checklist', [...(sel.checklist ?? []), { item: '', requirement: '', evidence: '' }])}><Plus size={14} />Add item</button></div>
+            <p className="muted sm-text" style={{ marginTop: 0 }}>Copied into each new monthly scorecard. The reviewer then sets 完成 / 未完成 / 不适用 and the evidence.</p>
+            {(sel.checklist ?? []).map((c, n) => (
+              <div key={n} className="form-grid" style={{ gridTemplateColumns: '1fr 2fr 1.4fr auto', alignItems: 'end', marginBottom: '.4rem' }}>
+                <div><label>项目</label><input value={c.item} onChange={(e) => setT('checklist', sel.checklist.map((x, j) => (j === n ? { ...x, item: e.target.value } : x)))} /></div>
+                <div><label>当月要求及截止日期</label><input value={c.requirement} onChange={(e) => setT('checklist', sel.checklist.map((x, j) => (j === n ? { ...x, requirement: e.target.value } : x)))} /></div>
+                <div><label>完成证据 (hint)</label><input value={c.evidence} onChange={(e) => setT('checklist', sel.checklist.map((x, j) => (j === n ? { ...x, evidence: e.target.value } : x)))} /></div>
+                <button className="ghost icon sm danger" aria-label="Remove" style={{ marginBottom: 6 }} onClick={() => setT('checklist', sel.checklist.filter((_, j) => j !== n))}><Trash2 size={15} /></button>
+              </div>
+            ))}
+          </div>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+            <div className="card"><h2>审核指标 (one per line)</h2><textarea style={{ minHeight: 110 }} value={(sel.indicators ?? []).join('\n')} onChange={(e) => setT('indicators', e.target.value.split('\n'))} /></div>
+            <div className="card"><h2>Daily task rows (one per line, blank = unnamed)</h2><textarea style={{ minHeight: 110 }} value={(sel.daily_tasks ?? []).join('\n')} onChange={(e) => setT('daily_tasks', e.target.value.split('\n'))} /></div>
           </div>
           <div className="row">
             <button className="primary" onClick={save}><Save size={16} />Save template</button>

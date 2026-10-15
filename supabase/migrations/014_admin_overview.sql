@@ -29,7 +29,9 @@ begin
         (select count(*) from public.customers c where c.owner_id = p.id and (c.batch_date is null or c.batch_date < today)) as leads,
         (select count(*) from public.customers c where c.owner_id = p.id and c.lead_status = 'pending_management' and (c.batch_date is null or c.batch_date < today)) as leads_pending_mgmt,
         (select count(*) from public.customers c where c.owner_id = p.id and c.lead_status = 'pending_demo' and (c.batch_date is null or c.batch_date < today)) as leads_pending_demo,
-        (select count(*) from public.customers c where c.owner_id = p.id and c.lead_status = 'invite_webinar' and (c.batch_date is null or c.batch_date < today)) as leads_invite_webinar
+        (select count(*) from public.customers c where c.owner_id = p.id and c.lead_status = 'invite_webinar' and (c.batch_date is null or c.batch_date < today)) as leads_invite_webinar,
+        (select count(*) from public.customers c where c.owner_id = p.id and c.lead_status = 'potential' and (c.batch_date is null or c.batch_date < today)) as leads_potential,
+        (select count(*) from public.customers c where c.closed_by_id = p.id and c.closed_at >= date_trunc('month', now())) as deals_closed
       from public.profiles p where p.active) s),
     'leave_pending', (select count(*) from public.time_off_requests where status = 'pending'),
     'password_not_set', (select count(*) from public.profiles where active and must_change_password),
@@ -45,6 +47,11 @@ begin
       select c.id, c.name, c.owner_name, c.status_remark, c.status_updated_by, c.status_updated_at from public.customers c where c.lead_status = 'pending_management' order by c.status_updated_at desc nulls last limit 8) l),
     'accounts_pending_on', (select coalesce(jsonb_agg(to_jsonb(g)), '[]'::jsonb) from (
       select pending_on_name as name, count(*) as n from public.purchase_accounts where pending_on_id is not null group by 1 order by 2 desc) g),
+    'upcoming_demos', (select coalesce(jsonb_agg(to_jsonb(d)), '[]'::jsonb) from (
+      select c.name, c.owner_name, c.demo_by_name, c.demo_date, c.demo_time from public.customers c
+       where c.lead_status = 'pending_demo' and c.demo_date >= today order by c.demo_date, c.demo_time limit 8) d),
+    'upcoming_invites', (select coalesce(jsonb_agg(to_jsonb(i)), '[]'::jsonb) from (
+      select c.webinar_invite_date as date, count(*) as n from public.customers c where c.lead_status = 'invite_webinar' and c.webinar_invite_date >= today group by 1 order by 1 limit 6) i),
     'upcoming_onboarding', (select coalesce(jsonb_agg(to_jsonb(u)), '[]'::jsonb) from (
       select a.account_name, s.round, s.start_at, s.host, s.status from public.onboarding_sessions s join public.purchase_accounts a on a.id = s.account_id
        where s.start_at between now() - interval '1 day' and now() + interval '7 days' and s.status is distinct from 'completed' order by s.start_at limit 8) u)

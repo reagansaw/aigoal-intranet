@@ -66,6 +66,10 @@ export interface KpiTemplate {
   commission_rate: number
   commission_free_deals: number
   active: boolean
+  checklist: { item: string; requirement: string; evidence: string }[]
+  indicators: string[]
+  daily_tasks: string[]
+  max_over_bonus: number | null
 }
 
 export interface KpiItem {
@@ -82,6 +86,9 @@ export interface KpiItem {
   bands: Band[]
   bonus_threshold_pct: number | null
   bonus_amount: number | null
+  note: string | null
+  source: 'manual' | 'attendance' | 'leadmagnet' | 'cpl' | 'checklist'
+  bonus_needs_budget: boolean
 }
 
 export interface KpiReview {
@@ -93,6 +100,9 @@ export interface KpiReview {
   net_collected: number
   summary: string | null
   locked: boolean
+  extra_note: string | null
+  indicators: { indicator: string; reason: string; improvement: string }[]
+  daily: { label: string; days: boolean[] }[]
 }
 
 export interface KpiScore {
@@ -135,8 +145,15 @@ export interface Customer {
   aigoal_status: string | null
   purchased: boolean
   batch_date: string | null
-  lead_status: 'pending_management' | 'pending_demo' | 'invite_webinar' | null
+  lead_status: 'pending_management' | 'pending_demo' | 'invite_webinar' | 'potential' | 'close_deal' | null
   status_remark: string | null
+  closed_by_name: string | null
+  closed_at: string | null
+  demo_by_id: string | null
+  demo_by_name: string | null
+  demo_date: string | null
+  demo_time: string | null
+  webinar_invite_date: string | null
 }
 
 export interface PurchaseAccount {
@@ -153,6 +170,7 @@ export interface PurchaseAccount {
   product: string
   account_name: string
   testimonial: boolean
+  testimonial_url: string | null
   purchase_date: string | null
   contact_person: string | null
   phone: string | null
@@ -225,7 +243,7 @@ export interface OnboardingSession {
 export interface AccountNote {
   id: string
   account_id: string
-  kind: 'followup' | 'issue' | 'remark' | 'reminder'
+  kind: 'followup' | 'issue' | 'remark' | 'reminder' | 'call'
   body: string
   next_action: string | null
   deadline: string | null
@@ -235,3 +253,11 @@ export interface AccountNote {
   author_name: string
   created_at: string
 }
+
+export interface KpiWeekly {
+  id: string; review_id: string; sort: number; week_date: string | null
+  ad_budget: number | null; attendance_target: number | null; leadmagnet_target: number | null
+  attendance_actual: number | null; leadmagnet_actual: number | null; ad_spend: number | null; leads_total: number | null
+}
+export interface KpiChecklistRow { id: string; review_id: string; sort: number; item: string; requirement: string | null; status: '完成' | '未完成' | '不适用' | null; evidence: string | null }
+export interface KpiOrder { id: string; review_id: string; sort: number; customer_ref: string | null; source_webinar: string | null; first_payment_date: string | null; net_received: number; is_commission_order: boolean }

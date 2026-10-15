@@ -373,3 +373,10 @@ details.more[open] > summary { margin-bottom: .8rem; }
 .who-link:hover { background: var(--side-hover); text-decoration: none; }
 .sect { border: 1px solid var(--line); border-radius: 12px; padding: .9rem 1rem .3rem; margin-bottom: .9rem; }
 .sect > h3 { margin: 0 0 .75rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: flex; align-items: center; gap: .45rem; font-weight: 650; }
+
+/* actions column stays pinned and fully visible while the table scrolls sideways */
+th.sticky-end, td.sticky-end { position: sticky; right: 0; z-index: 2; background: var(--surface); box-shadow: -10px 0 10px -10px rgba(15, 23, 42, .22); }
+th.sticky-end { background: var(--surface-2); }
+tbody tr:hover td.sticky-end { background: var(--surface-2); }
+.act-col { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; }
+.table-wrap { overscroll-behavior-x: contain; }

@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, BarChart3, CalendarClock, CalendarDays, ClipboardCheck, ExternalLink, Hammer, KeyRound, ListChecks, MessageSquareWarning, NotebookPen, PhoneCall, Pin, Plane, ShieldCheck, UserX, Users, Wallet, Wrench, type LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { calcPayout } from '../lib/kpi'
+import { loadUserPayouts } from '../lib/kpiLoad'
 import { buildPipeline, dayTime } from '../lib/pipeline'
 import { dayLabel, money, monthLabel, monthStart, today } from '../lib/util'
 import { Empty, initials, PageHeader, Stat } from '../components/ui'
-import type { KbArticle, KpiItem, KpiReview, KpiScore, KpiTemplate, OnboardingSession, PurchaseAccount, Todo } from '../lib/types'
+import type { KbArticle, OnboardingSession, PurchaseAccount, Todo } from '../lib/types'
 
 interface StaffRow {
   id: string; name: string; title: string | null; role: string; last_seen_at: string | null; must_change_password: boolean
@@ -21,6 +21,8 @@ interface Overview {
   overdue_followups: number; meeting_overdue: number; leads_pending_mgmt: number; leads_pending_demo: number; leads_invite_webinar: number
   pending_mgmt_list: { id: string; name: string; owner_name: string | null; status_remark: string | null; status_updated_by: string | null; status_updated_at: string | null }[]
   accounts_pending_on: { name: string; n: number }[]
+  upcoming_demos: { name: string; owner_name: string | null; demo_by_name: string; demo_date: string; demo_time: string }[]
+  upcoming_invites: { date: string; n: number }[]
   upcoming_onboarding: { account_name: string; round: number; start_at: string; host: string | null; status: string | null }[]
 }
 type Item = { key: string; label: string; n: number; to: string; tone: 'red' | 'orange' | 'yellow' | 'gray' | ''; icon: LucideIcon }
@@ -83,22 +85,10 @@ export default function Home() {
       ])
       setMine({ waiting, overdue, unscheduled, meeting, pm })
     })()
-    ;(async () => {
-      const { data: r } = await supabase.from('kpi_reviews').select('*').eq('user_id', me).eq('month', month).maybeSingle()
-      if (!r) return
-      const review = r as KpiReview
-      const [{ data: t }, { data: it }, { data: sc }] = await Promise.all([
-        supabase.from('kpi_templates').select('*').eq('id', review.template_id).single(),
-        supabase.from('kpi_items').select('*').eq('template_id', review.template_id).order('sort'),
-        supabase.from('kpi_scores').select('*').eq('review_id', review.id),
-      ])
-      const map: Record<string, Partial<KpiScore>> = {}
-      ;(sc ?? []).forEach((s: KpiScore) => (map[s.item_id] = s))
-      const tpl = t as KpiTemplate
-      const items = (it ?? []) as KpiItem[]
-      const p = calcPayout(tpl, items, map, review)
-      setKpi({ score: p.baseScore, max: items.reduce((s, i) => s + Number(i.max_points), 0), total: p.grand, cur: tpl.currency, tpl: tpl.name })
-    })()
+    loadUserPayouts(me).then((list) => {
+      const x = list.find((u) => u.review.month === month)
+      if (x) setKpi({ score: x.payout.baseScore, max: x.payout.maxScore, total: x.payout.grand, cur: x.tpl.currency, tpl: x.tpl.name })
+    })
     if (isAdmin) {
       supabase.rpc('admin_overview').then(({ data }) => setOv(data as Overview))
       supabase.from('purchase_accounts').select('*').then(({ data }) => setAccounts((data ?? []) as PurchaseAccount[]))
@@ -169,6 +159,18 @@ export default function Home() {
                 <div key={i} className="day-row"><span className="tag brand">O{u.round}</span><b style={{ flex: 1 }}>{u.account_name}</b><span className="muted sm-text">{dayTime(u.start_at)}{u.host && ` · ${u.host}`}</span></div>
               ))}
               {!ov.upcoming_onboarding.length && <p className="muted" style={{ margin: 0 }}>No onboarding sessions booked.</p>}
+              {(ov.upcoming_demos?.length ?? 0) > 0 && (
+                <div style={{ marginTop: '.8rem', paddingTop: '.8rem', borderTop: '1px solid var(--line)' }}>
+                  <div className="muted sm-text" style={{ marginBottom: '.3rem' }}>Demos coming up</div>
+                  {ov.upcoming_demos.map((d, i) => <div key={i} className="day-row"><b style={{ flex: 1 }}>{d.name}</b><span className="muted sm-text">{d.demo_by_name} · {dayLabel(d.demo_date)} {d.demo_time}</span></div>)}
+                </div>
+              )}
+              {(ov.upcoming_invites?.length ?? 0) > 0 && (
+                <div style={{ marginTop: '.8rem', paddingTop: '.8rem', borderTop: '1px solid var(--line)' }}>
+                  <div className="muted sm-text" style={{ marginBottom: '.3rem' }}>Invited to webinars</div>
+                  <div className="chips">{ov.upcoming_invites.map((i) => <Link key={i.date} to="/customers?status=invite_webinar" className="tag good">{dayLabel(i.date)} · {i.n}</Link>)}</div>
+                </div>
+              )}
               {ov.accounts_pending_on.length > 0 && (
                 <div style={{ marginTop: '.8rem', paddingTop: '.8rem', borderTop: '1px solid var(--line)' }}>
                   <div className="muted sm-text" style={{ marginBottom: '.3rem' }}>Accounts waiting on</div>
@@ -196,7 +198,6 @@ export default function Home() {
                         : s.away_today === 'leave' ? <span className="tag warn">On leave</span>
                         : s.away_today === 'travel' ? <span className="tag brand">Travelling</span>
                         : <span className="tag good">Available</span>}
-                      {s.leave_remaining != null && <div className="muted sm-text" style={{ marginTop: 2 }}>{s.leave_remaining} leave days left</div>}
                     </td>
                     <td style={{ minWidth: 160 }}>
                       <div className="sm-text">{s.todos_done}/{s.todos_today} done today</div>
@@ -231,6 +232,8 @@ export default function Home() {
         </>
       )}
 
+      {!isAdmin && (
+        <>
       <div className="grid">
         <Stat icon={ListChecks} label="Your tasks done today" value={`${done} / ${todos.length}`} />
         <Stat icon={BarChart3} tone="green" label={`${monthLabel(month)} base score`} value={kpi ? `${kpi.score} / ${kpi.max}` : 'Not set'} />
@@ -259,7 +262,9 @@ export default function Home() {
           {!pinned.length && <Empty icon={Pin} title="No pinned links">Admin can pin articles from the Knowledge Base.</Empty>}
         </div>
       </div>
-      {kpi && <p className="muted sm-text">Scorecard: {kpi.tpl}</p>}
+        </>
+      )}
+      {!isAdmin && kpi && <p className="muted sm-text">Scorecard: {kpi.tpl}</p>}
     </>
   )
 }

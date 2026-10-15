@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeCheck, Bell, CalendarClock, CalendarSync, Check, Eye, Hammer, History, Lock, MessageSquare, Pencil, Plus, Receipt, Save, Trash2, Undo2, UserCog, Video, Wrench } from 'lucide-react'
+import { BadgeCheck, Bell, MessageCircle, CalendarClock, CalendarSync, Check, Eye, Hammer, History, Lock, MessageSquare, Pencil, Plus, Receipt, Save, Trash2, Undo2, UserCog, Video, Wrench } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useStaff } from '../lib/useStaff'
@@ -16,6 +16,9 @@ import type { AccountNote, OnboardingSession, PurchaseAccount } from '../lib/typ
 
 const IN_USE = [{ value: '', label: 'Unknown' }, { value: 'Y', label: 'Yes, in use' }, { value: 'P', label: 'Partially' }, { value: 'N', label: 'Not using' }]
 const STAGE_LABEL: Record<string, string> = { o1: 'Onboarding 1', dev: 'Ready to develop', devdone: 'Developing', o2: 'Onboarding 2', o3: 'Onboarding 3', complete: 'Completed' }
+const CATEGORIES = [{ value: '', label: '— None —' }, ...['AIGOAL Conversion', 'Both', 'AI Studio', 'Marketing Services'].map((v) => ({ value: v, label: v }))]
+const driveOk = (u: string) => /^https:\/\/(drive|docs)\.google\.com\//i.test(u.trim())
+const waUrl = (u?: string | null) => { const v = (u ?? '').trim(); if (!v) return null; const full = /^https?:\/\//i.test(v) ? v : /whatsapp\.com/i.test(v) ? 'https://' + v : null; return full }
 const blank: Partial<PurchaseAccount> = { product: 'AIGOAL', account_name: '', testimonial: false }
 
 export default function Accounts() {
@@ -103,7 +106,8 @@ export default function Accounts() {
   const open = (r: Partial<PurchaseAccount>, t: typeof tab = 'details') => { setEdit(r); setTab(t); setErr(''); setRemindNote('') }
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!edit) return
-    const { id, develop_started_at, develop_done_at, builder_ids, pending_on_id, pending_on_name, pending_since, pending_by_name, issues: _i, action_plan: _a, remarks: _r, deadline: _d, ...rest } = edit as PurchaseAccount
+    if (edit.testimonial_url?.trim() && !driveOk(edit.testimonial_url)) return setErr('The testimonial needs a Google Drive video link.')
+    const { id, develop_started_at, develop_done_at, builder_ids, testimonial: _t, pending_on_id, pending_on_name, pending_since, pending_by_name, issues: _i, action_plan: _a, remarks: _r, deadline: _d, ...rest } = edit as PurchaseAccount
     const payload = { ...rest, purchase_date: rest.purchase_date || null, updated_at: new Date().toISOString() }
     const { error } = id ? await supabase.from('purchase_accounts').update(payload).eq('id', id) : await supabase.from('purchase_accounts').insert(payload)
     if (error) return setErr(error.message)
@@ -115,7 +119,8 @@ export default function Accounts() {
   // ───── modal pieces ─────
   const cur = edit?.id ? withP.find((x) => x.r.id === edit.id) : undefined
   const editable = !edit?.id || canBuild(edit)
-  const identityEditable = !edit?.id || isAdmin || (edit.builder_ids ?? []).includes(me)
+  const identityEditable = !edit?.id || isAdmin                                   // contact details, industry, category, purchase date
+  const nameEditable = !edit?.id || isAdmin || (edit.builder_ids ?? []).includes(me)  // company name
   const nextBooking = cur && ['o1', 'o2', 'o3'].includes(cur.p.stage)
     ? sessions.filter((s) => s.account_id === cur.r.id && s.round === Number(cur.p.stage[1]) && s.status !== 'cancelled' && s.status !== 'completed').sort((a, b) => b.start_at.localeCompare(a.start_at))[0] : undefined
   const field = (k: keyof PurchaseAccount, label: string, locked = false, type?: 'date') => (
@@ -159,7 +164,7 @@ export default function Accounts() {
 
       <div className="card flush table-wrap">
         <table>
-          <thead><tr><th>Customer</th><th>Contact</th><th>Onboarding flow</th><th>Status</th><th>Latest follow-up</th><th style={{ width: 210 }}></th></tr></thead>
+          <thead><tr><th>Customer</th><th>Contact</th><th>Onboarding flow</th><th>Latest follow-up</th><th className="sticky-end" style={{ width: 168 }}></th></tr></thead>
           <tbody>
             {pageRows.map(({ r, p, last, next, openIssues }) => {
               const mine = canBuild(r)
@@ -180,15 +185,13 @@ export default function Accounts() {
                   <td style={{ minWidth: 180 }}>
                     <PipelineDots p={p} />
                     <div className={'stage-label ' + p.stage}>{p.stageLabel}{p.stageSub && <span className="muted sm-text" style={{ fontWeight: 400 }}> · {p.stageSub}</span>}</div>
-                  </td>
-                  <td style={{ minWidth: 150 }} onClick={(e) => e.stopPropagation()}>
-                    {r.pending_on_id ? (
-                      <div className="stack-sm">
+                    {r.pending_on_id && (
+                      <div className="stack-sm" style={{ marginTop: '.45rem' }} onClick={(e) => e.stopPropagation()}>
                         <span className="tag warn" style={{ width: 'fit-content' }}><Bell size={12} />Pending {r.pending_on_name}</span>
                         <span className="muted sm-text">{r.pending_since && ago(r.pending_since)}{r.pending_by_name && ` · by ${r.pending_by_name}`}</span>
                         {(r.pending_on_id === me || mine) && <button className="sm" style={{ width: 'fit-content' }} onClick={() => clearRemind(r.id)}><Check size={13} />Mark done</button>}
                       </div>
-                    ) : <span className="muted sm-text">—</span>}
+                    )}
                   </td>
                   <td style={{ maxWidth: 280 }}>
                     {last ? <>
@@ -200,12 +203,14 @@ export default function Accounts() {
                       {next?.next_action && <span className={'tag' + (next.deadline && next.deadline < new Date().toISOString().slice(0, 10) ? ' warn' : '')} title={next.next_action}>Next: {next.next_action.length > 24 ? next.next_action.slice(0, 24) + '…' : next.next_action}</span>}
                     </div>
                   </td>
-                  <td className="nowrap" onClick={(e) => e.stopPropagation()}>
-                    <div className="row" style={{ gap: '.35rem', flexWrap: 'nowrap' }}>
+                  <td className="sticky-end" onClick={(e) => e.stopPropagation()}>
+                    <div className="act-col">
                       {mine && p.stage === 'dev' && <button className="sm primary" onClick={() => act(r.id, 'start')}><Hammer size={14} />Develop</button>}
                       {mine && p.stage === 'devdone' && <button className="sm primary" onClick={() => act(r.id, 'done')}><Check size={14} />Develop Done</button>}
-                      <Menu label="Remind" icon={Bell} options={remindOptions} onPick={(pid) => remind(r.id, pid)} />
-                      <button className="ghost icon sm" aria-label={mine ? 'Edit' : 'View'} onClick={() => open(r)}>{mine ? <Pencil size={15} /> : <Eye size={15} />}</button>
+                      <div className="row" style={{ gap: '.3rem', flexWrap: 'nowrap' }}>
+                        <Menu label="Remind" icon={Bell} options={remindOptions} onPick={(pid) => remind(r.id, pid)} />
+                        <button className="ghost icon sm" aria-label={mine ? 'Edit' : 'View'} onClick={() => open(r)}>{mine ? <Pencil size={15} /> : <Eye size={15} />}</button>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -267,11 +272,12 @@ export default function Accounts() {
             <form onSubmit={save}>
               {edit.id && !editable && <div className="lockbar"><Lock size={14} /> View only. Only {builderNames || 'the AI Builder'} (or Admin) can edit this account.</div>}
               <div className="sect">
-                <h3>Customer {edit.id && !identityEditable ? <Lock size={12} className="i" /> : null}</h3>
-                {edit.id && <div className="lockbar"><Lock size={13} /> From AIGOAL. Only Admin or this account's AI Builder can change these.</div>}
+                <h3>Customer</h3>
+                {edit.id && <div className="lockbar"><Lock size={13} /> From AIGOAL. Only Admin can change these. The AI Builder can change the company name.</div>}
                 <div className="form-grid">
-                  <div className="field"><label>Company name {!identityEditable && <Lock size={11} className="i" />}</label><input required disabled={!identityEditable} value={edit.account_name ?? ''} onChange={(e) => set('account_name', e.target.value)} /></div>
-                  {field('contact_person', 'Person name', true)}{field('phone', 'Phone', true)}{field('email', 'Register email', true)}{field('industry', 'Industry', true)}{field('category', 'Category', true)}
+                  <div className="field"><label>Company name {!nameEditable && <Lock size={11} className="i" />}</label><input required disabled={!nameEditable} value={edit.account_name ?? ''} onChange={(e) => set('account_name', e.target.value)} /></div>
+                  {field('contact_person', 'Person name', true)}{field('phone', 'Phone', true)}{field('email', 'Register email', true)}{field('industry', 'Industry', true)}
+                  <div className="field"><label>Category {!identityEditable && <Lock size={11} className="i" />}</label><Select block disabled={!identityEditable} value={edit.category ?? ''} onChange={(v) => set('category', v || null)} options={CATEGORIES} /></div>
                   {field('purchase_date', 'Purchase date', true, 'date')}
                 </div>
               </div>
@@ -281,7 +287,7 @@ export default function Accounts() {
                 <div className="form-grid">
                   <div className="field"><label>Assigned sales {!isAdmin && <Lock size={11} className="i" />}</label><Select block disabled={!isAdmin} value={ownerValue(edit)} onChange={(v) => setEdit(applyOwner(edit, v, staff))} options={ownerOptions(salesPeople, ownerNames)} /></div>
                   {people('ai_builder', 'AI Builder 1', builders)}{people('ai_builder_2', 'AI Builder 2', builders)}
-                  {people('sales', 'Sales', salesPeople)}{people('closed_by', 'Closed via (成交)', salesPeople, ['Webinar'])}
+                  {people('closed_by', 'Closed via (成交)', salesPeople, ['Webinar'])}
                 </div>
               </div>
 
@@ -289,9 +295,19 @@ export default function Accounts() {
                 <h3>Usage</h3>
                 <div className="form-grid">
                   <div className="field"><label>In use</label><Select block disabled={!editable} value={edit.in_use ?? ''} onChange={(v) => set('in_use', v || null)} options={IN_USE} /></div>
-                  {field('whatsapp_group', 'WhatsApp group link')}
+                  <div className="field"><label>WhatsApp group link</label>
+                    <div className="row" style={{ flexWrap: 'nowrap', gap: '.4rem' }}>
+                      <input style={{ flex: 1 }} disabled={!editable} value={edit.whatsapp_group ?? ''} placeholder="https://chat.whatsapp.com/…" onChange={(e) => set('whatsapp_group', e.target.value)} />
+                      {waUrl(edit.whatsapp_group) && <a className="btn" href={waUrl(edit.whatsapp_group)!} target="_blank" rel="noreferrer"><MessageCircle size={15} />Open chat</a>}
+                    </div></div>
                 </div>
-                <label className="check" style={{ marginBottom: '.9rem' }}><input type="checkbox" disabled={!editable} checked={edit.testimonial ?? false} onChange={(e) => set('testimonial', e.target.checked)} />Testimonial received</label>
+                <div className="field"><label>Testimonial video (Google Drive link) {edit.testimonial_url && driveOk(edit.testimonial_url) ? <span className="tag good" style={{ marginLeft: 6 }}><BadgeCheck size={11} />Received</span> : <span className="tag" style={{ marginLeft: 6 }}>Not received</span>}</label>
+                  <div className="row" style={{ flexWrap: 'nowrap', gap: '.4rem' }}>
+                    <input style={{ flex: 1 }} disabled={!editable} value={edit.testimonial_url ?? ''} placeholder="https://drive.google.com/file/d/…" onChange={(e) => set('testimonial_url', e.target.value)} />
+                    {edit.testimonial_url && driveOk(edit.testimonial_url) && <a className="btn" href={edit.testimonial_url} target="_blank" rel="noreferrer"><Video size={15} />Watch</a>}
+                  </div>
+                  {edit.testimonial_url && !driveOk(edit.testimonial_url) && <div className="err sm-text" style={{ marginTop: 4 }}>Paste a Google Drive link (drive.google.com…). The testimonial only counts once the video link is saved.</div>}
+                </div>
               </div>
 
               {err && <Alert text={err} />}

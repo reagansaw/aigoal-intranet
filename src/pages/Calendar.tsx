@@ -124,15 +124,17 @@ export default function CalendarPage() {
   return (
     <>
       <PageHeader title="Calendar & Leave" sub="Malaysia public holidays, who is away, and your leave balance.">
-        <button className="primary" onClick={() => { setErr(''); setApply({ type: 'leave', start_date: today(), end_date: today(), half_day: false }) }}><CalendarPlus size={16} />Apply leave / travel</button>
+        {!isAdmin && <button className="primary" onClick={() => { setErr(''); setApply({ type: 'leave', start_date: today(), end_date: today(), half_day: false }) }}><CalendarPlus size={16} />Apply leave / travel</button>}
       </PageHeader>
 
+      {!isAdmin && (
       <div className="grid">
         <Stat icon={CalendarDays} label={`Annual leave ${year}`} value={fig ? `${fig.entitlement} days` : '—'} />
         <Stat icon={Check} tone="green" label="Approved & used" value={fig ? `${fig.used} days` : '—'} />
         <Stat icon={CalendarPlus} tone="orange" label="Waiting for approval" value={fig ? `${fig.pending} days` : '—'} />
         <Stat icon={CalendarCheck} tone="red" label="Remaining" value={fig ? `${fig.remaining} days` : '—'} />
       </div>
+      )}
 
       <div className="tabs">
         <button className={tab === 'cal' ? 'on' : ''} onClick={() => setTab('cal')}>Calendar</button>
