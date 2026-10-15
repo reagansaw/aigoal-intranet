@@ -183,7 +183,7 @@ export default function Home() {
           <div className="card flush table-wrap">
             <div className="card-head" style={{ padding: '1rem 1.25rem 0' }}><h2><Users size={17} className="i" />Team status</h2><span className="muted sm-text">Today, {dayLabel(today())}</span></div>
             <table>
-              <thead><tr><th>Person</th><th>Today</th><th>To-do</th><th>Accounts</th><th>Leads</th><th>Last seen</th></tr></thead>
+              <thead><tr><th>Person</th><th>To-do</th><th>Accounts</th><th>Leads</th><th>Last seen</th></tr></thead>
               <tbody>
                 {ov.staff.map((s) => (
                   <tr key={s.id}>
@@ -192,12 +192,6 @@ export default function Home() {
                         <div className="avatar">{initials(s.name)}</div>
                         <div><div className="cell-title">{s.name}</div><div className="muted sm-text">{s.title || s.role}</div></div>
                       </div>
-                    </td>
-                    <td className="nowrap">
-                      {s.must_change_password ? <span className="tag">Not signed in yet</span>
-                        : s.away_today === 'leave' ? <span className="tag warn">On leave</span>
-                        : s.away_today === 'travel' ? <span className="tag brand">Travelling</span>
-                        : <span className="tag good">Available</span>}
                     </td>
                     <td style={{ minWidth: 160 }}>
                       <div className="sm-text">{s.todos_done}/{s.todos_today} done today</div>
