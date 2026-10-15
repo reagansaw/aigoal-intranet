@@ -64,7 +64,7 @@ export default function Customers() {
   const [batch, setBatch] = useState('all')
   const [owner, setOwner] = useState(params.get('owner') ?? 'all')
   const [statusF, setStatusF] = useState(params.get('status') ?? 'all')
-  const [buy, setBuy] = useState('all')
+  const [buy, setBuy] = useState(params.get('buy') ?? 'all')
   const [ask, setAsk] = useState<{ row: Customer; status: string; remark: string; demoBy: string; demoDate: string; demoTime: string; inviteDate: string; product: string; closeDate: string } | null>(null)
   const [toast, setToast] = useState('')
   const [demos, setDemos] = useState<DemoBooking[]>([])

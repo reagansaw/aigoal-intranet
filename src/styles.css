@@ -437,3 +437,17 @@ table.daily .daily-cell { text-align: center; padding: .4rem 0; }
 .sync-facts .hot { border-color: var(--warn); background: var(--warn-soft); }
 .sync-facts .hot b { color: var(--warn); }
 tr.picked td { background: var(--brand-soft); }
+.mtask-wrap { border-bottom: 1px solid var(--line); padding-bottom: .5rem; }
+.mtask-wrap:last-of-type { border-bottom: 0; }
+.mtask-wrap .mtask { border-bottom: 0; padding-bottom: .3rem; }
+.mtask-extra { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(200px, 1fr); gap: .5rem; align-items: center; padding-left: 30px; }
+.mt-members { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
+@media (max-width: 860px) { .mtask-extra { grid-template-columns: 1fr; padding-left: 0; } }
+.funnel { display: grid; gap: .8rem; }
+.funnel-row { display: block; color: var(--ink); text-decoration: none; padding: .7rem .85rem; border: 1px solid var(--line); border-radius: 12px; border-left: 4px solid var(--brand); }
+.funnel-row:hover { background: var(--surface-2); text-decoration: none; }
+.funnel-row.tone-orange { border-left-color: var(--warn); } .funnel-row.tone-green { border-left-color: var(--ok); }
+.funnel-top { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; margin-bottom: .35rem; }
+.funnel-n { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.funnel-row small { display: block; margin-top: .3rem; }
+.funnel-status { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--line); }

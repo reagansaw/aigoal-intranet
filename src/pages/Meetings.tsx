@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarCheck, CheckCircle2, ListPlus, NotebookPen, Pencil, Plus, Save, Trash2, Users } from 'lucide-react'
+import { CalendarCheck, CheckCircle2, ListPlus, NotebookPen, Pencil, Plus, Save, Trash2, Users, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
@@ -57,7 +57,7 @@ export default function Meetings() {
     if (removed.length) await supabase.from('meeting_tasks').delete().in('id', removed)
     const clean = draft.tasks.filter((t) => t.title?.trim())
     for (let i = 0; i < clean.length; i++) {
-      const t = clean[i]; const row = { meeting_id: id, sort: i, title: t.title!.trim(), assignee_id: t.assignee_id || null, deadline: t.deadline || null, status: t.status ?? 'open' }
+      const t = clean[i]; const row = { meeting_id: id, sort: i, title: t.title!.trim(), assignee_id: t.assignee_id || null, deadline: t.deadline || null, status: t.status ?? 'open', remarks: t.remarks?.trim() || null, member_ids: (t.member_ids ?? []).filter((m) => m !== t.assignee_id) }
       const { error } = isNew(t.id) ? await supabase.from('meeting_tasks').insert(row) : await supabase.from('meeting_tasks').update(row).eq('id', t.id!)
       if (error) { setBusy(false); return setErr(error.message) }
     }
@@ -76,8 +76,8 @@ export default function Meetings() {
 
   const shown = meetings.filter((m) => !q || [m.title, m.discussion, nameOf(m.minute_taker_id)].join(' ').toLowerCase().includes(q.toLowerCase()))
   const { rows: pageRows, pager } = usePaged(shown, q)
-  const mine = useMemo(() => tasks.filter((t) => t.assignee_id === profile!.id).sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done') || (a.deadline ?? '9').localeCompare(b.deadline ?? '9')), [tasks])
-  const mineOpen = mine.filter((t) => t.status === 'open').length
+  const mine = useMemo(() => tasks.filter((t) => t.assignee_id === profile!.id || (t.member_ids ?? []).includes(profile!.id)).sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done') || (a.deadline ?? '9').localeCompare(b.deadline ?? '9')), [tasks])
+  const mineOpen = mine.filter((t) => t.status === 'open' && t.assignee_id === profile!.id).length
   const titleOf = (id: string) => meetings.find((m) => m.id === id)?.title ?? ''
   const staffOpts = [{ value: '', label: 'Unassigned' }, ...staff.map((s) => ({ value: s.id, label: s.full_name || s.email || '' }))]
 
@@ -121,10 +121,11 @@ export default function Meetings() {
         <div className="card">
           {mine.map((t) => (
             <div key={t.id} className={'todo' + (t.status === 'done' ? ' done' : '')}>
-              <input type="checkbox" checked={t.status === 'done'} onChange={() => toggleDone(t)} aria-label="Done" />
-              <span className="t">{t.title}<div className="src">{titleOf(t.meeting_id)}</div></span>
+              <input type="checkbox" checked={t.status === 'done'} disabled={t.assignee_id !== profile!.id} onChange={() => toggleDone(t)} aria-label="Done" />
+              <span className="t">{t.title}{t.remarks && <div className="src">{t.remarks}</div>}<div className="src">{titleOf(t.meeting_id)}</div></span>
+              {t.assignee_id !== profile!.id && <span className="tag brand">Member · {(staff.find((x) => x.id === t.assignee_id)?.full_name ?? '').split(' ')[0]} is responsible</span>}
               {t.deadline && <span className={'tag' + (t.status === 'open' && t.deadline < today() ? ' warn' : '')}>Due {dayLabel(t.deadline)}</span>}
-              {t.todo_id ? <span className="tag good"><CheckCircle2 size={12} />In my To-Do</span>
+              {t.assignee_id !== profile!.id ? null : t.todo_id ? <span className="tag good"><CheckCircle2 size={12} />In my To-Do</span>
                 : <button className="sm" onClick={() => importTask(t.id)}><ListPlus size={14} />Add to my To-Do</button>}
             </div>
           ))}
@@ -147,7 +148,8 @@ export default function Meetings() {
 
           <h2 style={{ marginTop: '1.2rem' }}>Action items (Task, 谁负责, deadline)</h2>
           {draft.tasks.map((t) => (
-            <div key={t.id} className={'mtask' + (t.status === 'done' ? ' done' : '')}>
+            <div key={t.id} className="mtask-wrap">
+            <div className={'mtask' + (t.status === 'done' ? ' done' : '')}>
               <input type="checkbox" checked={t.status === 'done'} aria-label="Done" disabled={isNew(t.id) || (!canEdit && t.assignee_id !== profile!.id)}
                 onChange={async () => { const s = t.status === 'done' ? 'open' : 'done'; setT(t.id!, { status: s }); if (!canEdit) { await supabase.from('meeting_tasks').update({ status: s }).eq('id', t.id!); load() } }} />
               <div className="mt-title"><input disabled={!canEdit} placeholder="Task" value={t.title ?? ''} onChange={(e) => setT(t.id!, { title: e.target.value })} /></div>
@@ -159,8 +161,19 @@ export default function Meetings() {
                 {canEdit && <button type="button" className="ghost icon sm danger" aria-label="Remove" onClick={() => setDraft({ ...draft, tasks: draft.tasks.filter((x) => x.id !== t.id) })}><Trash2 size={15} /></button>}
               </div>
             </div>
+            <div className="mtask-extra">
+              <div className="mt-members">
+                <span className="muted sm-text">Members</span>
+                {staff.filter((x) => (t.member_ids ?? []).includes(x.id)).map((x) => (
+                  <span key={x.id} className="tag brand">{(x.full_name || x.email || '').split(' ')[0]}{canEdit && <button type="button" className="ghost icon" aria-label="Remove member" style={{ padding: 0, marginLeft: 4, minHeight: 0 }} onClick={() => setT(t.id!, { member_ids: (t.member_ids ?? []).filter((m) => m !== x.id) })}><X size={12} /></button>}</span>
+                ))}
+                {canEdit && <div style={{ width: 170 }}><Select value="" placeholder="Add member" onChange={(v) => v && setT(t.id!, { member_ids: [...new Set([...(t.member_ids ?? []), v])] })} options={staff.filter((x) => x.id !== t.assignee_id && !(t.member_ids ?? []).includes(x.id)).map((x) => ({ value: x.id, label: x.full_name || x.email || '' }))} /></div>}
+              </div>
+              <input disabled={!canEdit} placeholder="Remarks" value={t.remarks ?? ''} onChange={(e) => setT(t.id!, { remarks: e.target.value })} />
+            </div>
+            </div>
           ))}
-          {canEdit && <button type="button" style={{ marginTop: '.6rem' }} onClick={() => setDraft({ ...draft, tasks: [...draft.tasks, { id: uid(), title: '', status: 'open', assignee_id: null, deadline: null }] })}><Plus size={16} />Add action item</button>}
+          {canEdit && <button type="button" style={{ marginTop: '.6rem' }} onClick={() => setDraft({ ...draft, tasks: [...draft.tasks, { id: uid(), title: '', status: 'open', assignee_id: null, deadline: null, remarks: null, member_ids: [] }] })}><Plus size={16} />Add action item</button>}
           <p className="muted sm-text">“To-Do” puts the task on the responsible person's To-Do list as <b>unscheduled</b>; they then pick the day they will do it.</p>
 
           <Alert text={err} />

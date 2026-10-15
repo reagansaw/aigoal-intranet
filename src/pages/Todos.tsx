@@ -1,12 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Plus, Trash2 } from 'lucide-react'
+import { ArrowRight, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Plus, Timer, Trash2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { addDays, addMonths, dayLabel, monthLabel, monthStart, today } from '../lib/util'
-import { Alert, DatePicker, Empty, PageHeader, Select } from '../components/ui'
+import { Alert, DatePicker, Empty, NumberInput, PageHeader, Select } from '../components/ui'
 import type { Todo } from '../lib/types'
 
+const UNITS = [{ value: 'min', label: 'minutes' }, { value: 'h', label: 'hours' }]
+export const dur = (m: number | null | undefined) => (!m ? '' : m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`)
 const PRIORITIES = [{ value: 'low', label: 'Low' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'High' }]
 
 export default function Todos() {
@@ -20,6 +22,11 @@ export default function Todos() {
   const [inbox, setInbox] = useState<Todo[]>([])
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState('normal')
+  const [notes, setNotes] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [amount, setAmount] = useState<number | null>(null)
+  const [unit, setUnit] = useState('min')
+  const [more, setMore] = useState(false)
   const [err, setErr] = useState('')
 
   const load = async () => {
@@ -34,9 +41,10 @@ export default function Todos() {
   const add = async (e: FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
-    const { error } = await supabase.from('todos').insert({ user_id: uid, title: title.trim(), due_date: day, priority })
+    const minutes = amount ? Math.round(amount * (unit === 'h' ? 60 : 1)) : null
+    const { error } = await supabase.from('todos').insert({ user_id: uid, title: title.trim(), notes: notes.trim() || null, due_date: dueDate || day, duration_min: minutes, priority })
     if (error) return setErr(error.message)
-    setTitle(''); setErr(''); load()
+    setTitle(''); setNotes(''); setDueDate(''); setAmount(null); setErr(''); load()
   }
   const toggle = async (t: Todo) => {
     await supabase.from('todos').update({ done: !t.done, done_at: !t.done ? new Date().toISOString() : null }).eq('id', t.id)
@@ -54,7 +62,8 @@ export default function Todos() {
   const item = (t: Todo) => (
     <div key={t.id} className={'todo' + (t.done ? ' done' : '')}>
       <input type="checkbox" checked={t.done} onChange={() => toggle(t)} aria-label="Done" />
-      <span className="t">{t.title}{t.source && <div className="src">{t.source}</div>}</span>
+      <span className="t">{t.title}{t.notes && <div className="src">{t.notes}</div>}{t.source && <div className="src">{t.source}</div>}</span>
+      {t.duration_min && <span className="tag" title="Time to complete"><Timer size={12} />{dur(t.duration_min)}</span>}
       {t.deadline && <span className={'tag' + (!t.done && t.deadline < today() ? ' warn' : '')}>Due {dayLabel(t.deadline)}</span>}
       {t.priority === 'high' && <span className="tag warn">High</span>}
       {t.priority === 'low' && <span className="tag">Low</span>}
@@ -99,16 +108,27 @@ export default function Todos() {
 
       <div className="card">
         <div className="row between" style={{ marginBottom: '.5rem' }}>
-          <span className="muted">{done} of {todos.length} completed</span><b>{pct}%</b>
+          <span className="muted">{done} of {todos.length} completed{todos.some((t) => t.duration_min) && ` · planned ${dur(todos.reduce((n, t) => n + (t.duration_min ?? 0), 0))}`}</span><b>{pct}%</b>
         </div>
         <div className="bar" style={{ marginBottom: '.75rem' }}><i style={{ width: `${pct}%` }} /></div>
 
         {view === 'day' && (
           <>
-            <form className="row" onSubmit={add} style={{ marginBottom: '.75rem', flexWrap: 'nowrap' }}>
-              <input style={{ flex: 1, minWidth: 0 }} placeholder="Add a task for this day…" value={title} onChange={(e) => setTitle(e.target.value)} />
-              <Select value={priority} onChange={setPriority} options={PRIORITIES} />
-              <button className="primary"><Plus size={16} />Add</button>
+            <form onSubmit={add} style={{ marginBottom: '.75rem' }}>
+              <div className="row" style={{ flexWrap: 'nowrap' }}>
+                <input style={{ flex: 1, minWidth: 0 }} placeholder="Add a task for this day…" value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Select value={priority} onChange={setPriority} options={PRIORITIES} />
+                <button className="primary"><Plus size={16} />Add</button>
+              </div>
+              <button type="button" className="ghost sm" style={{ marginTop: '.4rem' }} onClick={() => setMore(!more)}>{more ? 'Hide details' : 'Add remarks, due date, time needed'}</button>
+              {(more || notes || dueDate || amount) && (
+                <div className="form-grid" style={{ marginTop: '.4rem' }}>
+                  <div className="field"><label>Due date</label><DatePicker value={dueDate || day} clearable={false} onChange={setDueDate} /></div>
+                  <div className="field"><label>Time needed to complete</label>
+                    <div className="row" style={{ flexWrap: 'nowrap' }}><div style={{ flex: 1 }}><NumberInput value={amount} onChange={setAmount} placeholder="e.g. 30" /></div><Select value={unit} onChange={setUnit} options={UNITS} /></div></div>
+                  <div className="field" style={{ gridColumn: '1 / -1' }}><label>Remarks</label><textarea style={{ minHeight: 60 }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Details, links, what done looks like…" /></div>
+                </div>
+              )}
             </form>
             <Alert text={err} />
             {todos.map(item)}

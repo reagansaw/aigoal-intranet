@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase'
 import { loadUserPayouts } from '../lib/kpiLoad'
 import { buildPipeline, dayTime } from '../lib/pipeline'
 import { dayLabel, money, monthLabel, monthStart, today } from '../lib/util'
+import TodayTodo from '../components/TodayTodo'
+import LeadPipeline from '../components/LeadPipeline'
 import AigoalToken from '../components/AigoalToken'
 import { Empty, initials, PageHeader, Stat } from '../components/ui'
 import type { KbArticle, OnboardingSession, PurchaseAccount, Todo } from '../lib/types'
@@ -177,6 +179,7 @@ export default function Home() {
 
       {isAdmin && <SyncStatus />}
       <Attention items={isAdmin ? adminItems : myItems} />
+      {isAdmin && <LeadPipeline />}
 
       {isAdmin && ov && (
         <>
@@ -276,16 +279,7 @@ export default function Home() {
         <Stat icon={PhoneCall} tone="red" label="Your hot customers (P1)" value={hot} />
       </div>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-        <div className="card">
-          <div className="card-head"><h2>Today's to-do</h2><Link to="/todos" className="row" style={{ gap: '.25rem' }}>Open <ArrowRight size={15} /></Link></div>
-          <div className="bar" style={{ marginBottom: '.5rem' }}><i style={{ width: todos.length ? `${(done / todos.length) * 100}%` : 0 }} /></div>
-          {todos.slice(0, 7).map((t) => (
-            <label key={t.id} className={'todo' + (t.done ? ' done' : '')} style={{ margin: 0, cursor: 'pointer', color: 'inherit', fontSize: 'inherit', fontWeight: 400 }}>
-              <input type="checkbox" checked={t.done} onChange={() => toggle(t)} /><span className="t">{t.title}</span>
-            </label>
-          ))}
-          {!todos.length && <Empty icon={ListChecks} title="Nothing planned today">Add tasks from the To-Do page.</Empty>}
-        </div>
+        <TodayTodo me={profile!.id} todos={todos} setTodos={setTodos} />
         <div className="card">
           <div className="card-head"><h2><Pin size={17} className="i" />Quick links</h2>{isAdmin && <Link to="/kb" className="row" style={{ gap: '.25rem' }}>All <ArrowRight size={15} /></Link>}</div>
           {pinned.map((a) => (
