@@ -4,7 +4,7 @@ React + Vite + TypeScript front-end on Supabase (email + password login, Postgre
 
 ## One-time setup
 
-1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 008).
+1. **Database** – Supabase dashboard → SQL Editor → run every file in `supabase/migrations/` in order (001 → 009).
    (Seeds the Sales KPI template from the Winson sheet and the Useful Link / Onboarding knowledge base.)
 2. **Auth** – Authentication → Providers → Email: keep enabled, turn **off** "Allow new users to sign up"
    (accounts are created by Admin/HR inside the app).
@@ -29,6 +29,15 @@ use the app. Admin/HR hand out a temporary password in People; the user replaces
   also deletes). People see the history of their own records inside the edit form; Admin sees the full log under Audit Log.
 - Tables are paginated (10/25/50/100 rows).
 - Admin can change a person's login email under People.
+
+## Onboarding times (from the AIGOAL calendar)
+
+Onboarding 1 / 2 / 3 dates are **read-only** in the intranet; they are pulled from the AIGOAL calendar
+(`/api/calendar/appointments`): service "AIGOAL Onboarding" = Onboarding 1, "AIGOAL 2nd Round Onboarding" = Onboarding 2,
+a 3rd-round/final service = Onboarding 3. Admin clicks **Sync AIGOAL calendar** on Purchase Accounts and pastes a fresh
+AIGOAL API token (it expires in about an hour and is not stored). Bookings are matched to accounts by phone, then email.
+Deploy once with `supabase functions deploy sync-onboarding`. Set the function secret `AIGOAL_API_TOKEN` to a long-lived
+key if AIGOAL offers one, to sync without pasting a token.
 
 ## Calendar and leave
 

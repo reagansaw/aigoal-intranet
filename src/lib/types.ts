@@ -195,3 +195,17 @@ export interface TimeOff {
 }
 export interface CalendarOff { id: string; user_id: string; full_name: string; type: 'leave' | 'travel'; start_date: string; end_date: string; half_day: boolean; days: number; destination: string | null }
 export interface LeaveFigures { entitlement: number; used: number; pending: number; remaining: number }
+
+export interface OnboardingSession {
+  id: string
+  appointment_id: string
+  account_id: string
+  round: 1 | 2 | 3
+  service: string | null
+  start_at: string
+  end_at: string | null
+  status: string | null
+  host: string | null
+  zoom_url: string | null
+  customer_name: string | null
+}
