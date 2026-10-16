@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertCircle, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, EyeOff, Funnel, Search, X, type LucideIcon } from 'lucide-react'
+import { AlertCircle, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, EyeOff, Funnel, Info, Search, X, type LucideIcon } from 'lucide-react'
 
 export function PageHeader({ title, sub, children }: { title: string; sub?: ReactNode; children?: ReactNode }) {
   return (
@@ -356,4 +356,9 @@ export function ColumnFilter({ label, text, options, selected, onChange, chip }:
       )}
     </span>
   )
+}
+
+/** A small (i) that shows an explanation on hover or keyboard focus, so long descriptions stay out of the page. */
+export function Tip({ text }: { text: string }) {
+  return <span className="tip" tabIndex={0} role="note" aria-label={text} data-tip={text}><Info size={15} /></span>
 }

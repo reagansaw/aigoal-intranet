@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { addDays, addMonths, dayLabel, monthLabel, monthStart, today } from '../lib/util'
 import { isLate, klDay, outcomeOf, tally, weekStart } from '../lib/todo'
-import { Alert, DatePicker, Empty, NumberInput, PageHeader, Select, Stat } from '../components/ui'
+import { Alert, DatePicker, Empty, NumberInput, PageHeader, Select, Stat, Tip } from '../components/ui'
 import TodoBoard from '../components/TodoBoard'
 import TodoChart, { type DayCount } from '../components/TodoChart'
 import type { Todo } from '../lib/types'
@@ -97,7 +97,7 @@ export default function Todos() {
 
   return (
     <>
-      <PageHeader title="To-Do" sub="Created date is automatic, set the due date, and see done vs not done by day, week or month.">
+      <PageHeader title="To-Do" sub="Plan your tasks and see how many you finished.">
         {isManager && <Select value={uid} onChange={setUid} options={staff.map((s) => ({ value: s.id, label: s.full_name || s.email || '' }))} />}
       </PageHeader>
 
@@ -119,6 +119,7 @@ export default function Todos() {
         </div>
       </div>
 
+      <div className="row" style={{ gap: '.4rem', margin: '0 0 .5rem' }}><b>Marks</b><Tip text="Mark = done ÷ total to-do (10 to-do with 5 done = 5/10 = 50%). Not done = past its due date without a tick. A task created and due on the same day must be ticked by the end of that day; if not, it counts as not done even if ticked later." /></div>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
         <Stat icon={ListTodo} label="Total to-do" value={marks.total} />
         <Stat icon={ListChecks} tone="green" label="Done" value={marks.done} />
@@ -126,10 +127,6 @@ export default function Todos() {
         <Stat icon={CalendarDays} tone="gray" label="Still open" value={marks.open} />
         <Stat icon={CalendarDays} tone="yellow" label={`Mark · ${marks.done}/${marks.total}`} value={marks.score == null ? '—' : `${marks.score}%`} />
       </div>
-      <p className="muted sm-text" style={{ margin: '-.2rem 0 1rem' }}>
-        <b>Not done</b> = past its due date without a tick. A task created and due on the same day must be ticked by the end of that day; if not, it counts as not done even if ticked later.
-        Mark = done ÷ total to-do (10 to-do with 5 done = 5/10 = 50%).
-      </p>
 
       {layout === 'board' && <TodoBoard cards={[...inbox, ...todos]} uid={uid} month={month} fallbackDay={day} onChange={load} />}
 
