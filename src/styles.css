@@ -518,3 +518,5 @@ tr.picked td { background: var(--brand-soft); }
 .spark i b { position: absolute; left: 0; right: 0; bottom: 0; background: var(--ok); border-radius: 3px; }
 .spark i.some { background: color-mix(in srgb, var(--warn) 35%, var(--surface-2)); }
 .stage-label.frozen { color: var(--brand); }
+.frozen-tag { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; width: fit-content; font-weight: 600; }
+.stage-label.frozen { color: var(--muted); }

@@ -180,7 +180,8 @@ export default function Accounts() {
                   </td>
                   <td style={{ minWidth: 180 }}>
                     <PipelineDots p={p} />
-                    <div className={'stage-label ' + p.stage}>{p.stageLabel}{p.stageSub && <span className="muted sm-text" style={{ fontWeight: 400 }}> · {p.stageSub}</span>}</div>
+                    <div className={'stage-label ' + p.stage}>{p.stage === 'frozen' ? p.realLabel : p.stageLabel}{p.stage !== 'frozen' && p.stageSub && <span className="muted sm-text" style={{ fontWeight: 400 }}> · {p.stageSub}</span>}</div>
+                    {p.stage === 'frozen' && <div className="stack-sm" style={{ marginTop: '.35rem' }}><span className="tag frozen-tag" title={r.frozen_reason ?? ''}><Snowflake size={12} />Frozen</span>{r.frozen_reason && <span className="muted sm-text clamp2" style={{ maxWidth: 220 }}>{r.frozen_reason}</span>}</div>}
                     {r.pending_on_id && (
                       <div className="stack-sm" style={{ marginTop: '.45rem' }} onClick={(e) => e.stopPropagation()}>
                         <span className="tag warn" style={{ width: 'fit-content' }}><Bell size={12} />Pending {r.pending_on_name}</span>
@@ -224,7 +225,7 @@ export default function Accounts() {
         <Modal wide title={edit.account_name || 'New account'}
           sub={edit.id ? <>
             {[edit.industry, edit.contact_person].filter(Boolean).join(' · ')}
-            {cur && <span className="tag brand">{cur.p.stageLabel}</span>}
+            {cur && <span className="tag brand">{cur.p.stage === 'frozen' ? cur.p.realLabel : cur.p.stageLabel}</span>}{cur?.p.stage === 'frozen' && <span className="tag frozen-tag" title={cur.r.frozen_reason ?? ''}><Snowflake size={12} />Frozen</span>}
             {edit.pending_on_name && <span className="tag warn"><Bell size={11} />Pending {edit.pending_on_name}</span>}
             {!editable && <span className="tag"><Eye size={11} />View only</span>}
           </> : undefined}
@@ -235,7 +236,7 @@ export default function Accounts() {
               <div className="card" style={{ background: 'var(--surface-2)', boxShadow: 'none', padding: '.8rem 1rem' }}>
                 <div className="row between">
                   <div style={{ minWidth: 0 }}>
-                    <b>{cur.p.stageLabel}</b>
+                    <b>{cur.p.stage === 'frozen' ? cur.p.realLabel : cur.p.stageLabel}</b>{cur.p.stage === 'frozen' && <span className="tag frozen-tag" style={{ marginLeft: 8 }}><Snowflake size={12} />Frozen{cur.r.frozen_reason ? ` · ${cur.r.frozen_reason}` : ''}</span>}
                     <div className="muted sm-text">
                       {cur.p.stage === 'dev' && 'Onboarding 1 is done. Click Develop when you start building.'}
                       {cur.p.stage === 'devdone' && `Development started ${cur.r.develop_started_at ? dayTime(cur.r.develop_started_at) : ''}. Click Develop Done when it is ready.`}
