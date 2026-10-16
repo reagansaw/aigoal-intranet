@@ -184,7 +184,7 @@ export default function Customers() {
       <PageHeader title={viewAll ? 'Follow-Up Customers' : 'My Follow-Up Customers'} sub={viewAll ? (isAdmin ? 'Main list. Each sales person only sees the leads assigned to them.' : 'All leads. You can edit the ones assigned to you; the rest are view only.') : 'Leads assigned to you.'}>
         <button onClick={() => setVoice(true)}><Mic size={16} />Voice update</button>
         {isAdmin && <CsvImport onRows={importRows} />}
-        {isAdmin && <button onClick={() => { if (!sel.length) setSel(shown.filter((r) => !r.owner_id && !r.owner_name).map((r) => r.id)); setAssignOpen(true) }}><UserCheck size={16} />Assign leads</button>}
+        {isAdmin && <button onClick={() => setAssignOpen(true)}><UserCheck size={16} />Assign leads</button>}
         {isAdmin && <button onClick={() => setProdOpen(true)}><Package size={16} />Products</button>}
         {isAdmin && <button className="primary" onClick={() => open({ ...blank })}><Plus size={16} />Add customer</button>}
       </PageHeader>
@@ -365,7 +365,7 @@ export default function Customers() {
       )}
 
       {voice && <VoiceUpdate page="customer" onClose={() => setVoice(false)} onDone={load} />}
-      {assignOpen && <AssignLeads leads={rows.filter((r) => sel.includes(r.id))} sales={staff.filter((x) => x.is_sales)} onClose={() => { setAssignOpen(false) }} onDone={() => { setSel([]); load() }} />}
+      {assignOpen && <AssignLeads leads={sel.length ? rows.filter((r) => sel.includes(r.id)) : shown} sales={staff.filter((x) => x.is_sales)} onClose={() => { setAssignOpen(false) }} onDone={() => { setSel([]); load() }} />}
       {book && <BookingPicker customer={book} kind={book.kind} onClose={() => setBook(null)} onDone={load} />}
       {prodOpen && <ProductsManager products={products} onClose={() => setProdOpen(false)} onChanged={reloadProducts} />}
       {ask && (

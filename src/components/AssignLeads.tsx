@@ -23,11 +23,18 @@ export function splitLeads(leads: Customer[], people: string[]) {
 export default function AssignLeads({ leads, sales, onClose, onDone }: { leads: Customer[]; sales: Profile[]; onClose: () => void; onDone: () => void }) {
   const [picked, setPicked] = useState<string[]>([])
   const [onlyFree, setOnlyFree] = useState(true)
+  // webinars present in the list (oldest first); all ticked at the start
+  const webinars = useMemo(() => {
+    const m = new Map<string, { label: string; date: string; n: number; free: number }>()
+    leads.forEach((l) => { const k = l.batch ?? 'No webinar'; const e = m.get(k) ?? { label: k, date: l.batch_date ?? '', n: 0, free: 0 }; e.n++; if (!l.owner_id && !l.owner_name) e.free++; m.set(k, e) })
+    return [...m.values()].sort((a, b) => (a.date || '9').localeCompare(b.date || '9'))
+  }, [leads])
+  const [off, setOff] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [done, setDone] = useState(false)
 
-  const pool = useMemo(() => leads.filter((l) => !onlyFree || (!l.owner_id && !l.owner_name)), [leads, onlyFree])
+  const pool = useMemo(() => leads.filter((l) => !off.includes(l.batch ?? 'No webinar') && (!onlyFree || (!l.owner_id && !l.owner_name))), [leads, onlyFree, off])
   const plan = useMemo(() => (picked.length ? splitLeads(pool, picked) : {}), [pool, picked])
   const count = (pid: string, pri?: string) => (plan[pid] ?? []).filter((id) => !pri || pool.find((l) => l.id === id)?.priority === pri).length
   const assigned = leads.length - leads.filter((l) => !l.owner_id && !l.owner_name).length
@@ -46,12 +53,20 @@ export default function AssignLeads({ leads, sales, onClose, onDone }: { leads: 
   }
 
   return (
-    <Modal title="Assign leads" sub={`${leads.length} selected`} onClose={onClose}>
+    <Modal title="Assign leads" sub={`${leads.length} lead${leads.length === 1 ? '' : 's'} to choose from`} onClose={onClose}>
       {done ? (<>
         <Msg text={`Assigned ${pool.length} lead(s) ✓`} />
         <div className="modal-foot"><button className="primary" onClick={onClose}>Done</button></div>
       </>) : (<>
         <p className="muted" style={{ marginTop: 0 }}>Pick who gets the leads. They are shared equally, level within each of P1, P2, P3 and P4.</p>
+        <div className="field"><label>Webinar</label>
+          <div className="chips">
+            {webinars.map((w) => { const on = !off.includes(w.label); return <button key={w.label} type="button" aria-pressed={on} className={'chip' + (on ? ' on' : '')} onClick={() => setOff(on ? [...off, w.label] : off.filter((x) => x !== w.label))}>{w.label} <span className="muted">· {onlyFree ? w.free : w.n}</span></button> })}
+          </div>
+          <div className="row sm-text muted" style={{ gap: '.6rem', marginTop: '.3rem' }}>
+            <button type="button" className="ghost sm" onClick={() => setOff([])}>All webinars</button>
+            <button type="button" className="ghost sm" onClick={() => setOff(webinars.map((w) => w.label))}>None</button>
+          </div></div>
         <div className="field"><label>Sales people</label>
           <div className="chips">{sales.map((s) => <button key={s.id} type="button" className={'chip' + (picked.includes(s.id) ? ' on' : '')} onClick={() => setPicked(picked.includes(s.id) ? picked.filter((x) => x !== s.id) : [...picked, s.id])}>{s.full_name}</button>)}</div></div>
         {assigned > 0 && (
