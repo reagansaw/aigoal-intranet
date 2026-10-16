@@ -61,7 +61,7 @@ export default function AssignLeads({ leads, sales, onClose, onDone }: { leads: 
         <p className="muted" style={{ marginTop: 0 }}>Pick who gets the leads. They are shared equally, level within each of P1, P2, P3 and P4.</p>
         <div className="field"><label>Webinar</label>
           <div className="chips">
-            {webinars.map((w) => { const on = !off.includes(w.label); return <button key={w.label} type="button" aria-pressed={on} className={'chip' + (on ? ' on' : '')} onClick={() => setOff(on ? [...off, w.label] : off.filter((x) => x !== w.label))}>{w.label} <span className="muted">· {onlyFree ? w.free : w.n}</span></button> })}
+            {webinars.filter((w) => (onlyFree ? w.free : w.n) > 0).map((w) => { const on = !off.includes(w.label); return <button key={w.label} type="button" aria-pressed={on} className={'chip' + (on ? ' on' : '')} onClick={() => setOff(on ? [...off, w.label] : off.filter((x) => x !== w.label))}>{w.label} <span className="muted">· {onlyFree ? w.free : w.n}</span></button> })}
           </div>
           <div className="row sm-text muted" style={{ gap: '.6rem', marginTop: '.3rem' }}>
             <button type="button" className="ghost sm" onClick={() => setOff([])}>All webinars</button>
