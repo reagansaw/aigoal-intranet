@@ -16,8 +16,8 @@ const ALL_KINDS = {
 type Kind = keyof typeof ALL_KINDS
 
 /** Dated, signed follow-up timeline for one account (many entries over time; nothing is overwritten). */
-export default function AccountNotes({ accountId, onChange, refreshKey, table = 'account_notes', fk = 'account_id', kinds = ['followup', 'issue', 'remark'] }: {
-  accountId: string; onChange?: () => void; refreshKey?: number; table?: 'account_notes' | 'customer_notes'; fk?: 'account_id' | 'customer_id'; kinds?: Kind[]
+export default function AccountNotes({ accountId, onChange, refreshKey, table = 'account_notes', fk = 'account_id', kinds = ['followup', 'issue', 'remark'], readOnly = false }: {
+  accountId: string; onChange?: () => void; refreshKey?: number; table?: 'account_notes' | 'customer_notes'; fk?: 'account_id' | 'customer_id'; kinds?: Kind[]; readOnly?: boolean
 }) {
   const { profile } = useAuth()
   const [notes, setNotes] = useState<AccountNote[] | null>(null)
@@ -46,7 +46,7 @@ export default function AccountNotes({ accountId, onChange, refreshKey, table = 
 
   return (
     <div>
-      <div className="composer">
+      {!readOnly && <div className="composer">
         <div className="kinds">
           {kinds.map((k) => { const K = ALL_KINDS[k]; return <button key={k} type="button" className={kind === k ? 'on' : ''} onClick={() => setKind(k)}><K.icon size={14} />{K.label}</button> })}
         </div>
@@ -62,7 +62,7 @@ export default function AccountNotes({ accountId, onChange, refreshKey, table = 
           <button type="button" className="primary" disabled={busy || !body.trim()} onClick={add}>Add to timeline</button>
           <span className="muted sm-text">Signed with your name and the time. Entries cannot be edited.</span>
         </div>
-      </div>
+      </div>}
 
       {notes === null && <p className="muted">Loading…</p>}
       {notes?.length === 0 && <Empty icon={MessageSquarePlus} title="No follow-ups yet">Add the first one above.</Empty>}

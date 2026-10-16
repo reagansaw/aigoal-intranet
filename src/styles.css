@@ -520,3 +520,4 @@ tr.picked td { background: var(--brand-soft); }
 .stage-label.frozen { color: var(--brand); }
 .frozen-tag { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; width: fit-content; font-weight: 600; }
 .stage-label.frozen { color: var(--muted); }
+.plain-fs { border: 0; padding: 0; margin: 0; min-width: 0; }

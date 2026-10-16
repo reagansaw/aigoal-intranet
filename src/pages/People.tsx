@@ -125,6 +125,7 @@ export default function People() {
               {isAdmin && <div className="field"><label>Job roles</label><div className="chips">
                 <button type="button" className={'chip' + (edit.is_sales ? ' on' : '')} onClick={() => set('is_sales', !edit.is_sales)}>Sales</button>
                 <button type="button" className={'chip' + (edit.is_ai_builder ? ' on' : '')} onClick={() => set('is_ai_builder', !edit.is_ai_builder)}>AI Builder</button></div></div>}
+              {isAdmin && <div className="field"><label>Follow-Up Customers</label><div className="chips"><button type="button" className={'chip' + (edit.can_view_all_leads ? ' on' : '')} onClick={() => set('can_view_all_leads', !edit.can_view_all_leads)}>Can view all leads (read only)</button></div></div>}
               {fld('Start date', <DatePicker value={edit.start_date ?? ''} onChange={(v) => set('start_date', v)} />)}
               {fld('End date', <DatePicker value={edit.end_date ?? ''} onChange={(v) => set('end_date', v)} />)}
             </div>

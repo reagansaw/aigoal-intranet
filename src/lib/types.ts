@@ -16,6 +16,7 @@ export interface Profile {
   leave_entitlement: number
   is_sales: boolean
   is_ai_builder: boolean
+  can_view_all_leads: boolean
 }
 
 export interface Todo {

@@ -50,6 +50,8 @@ const EDITABLE: (keyof Customer)[] = ['webinar_invite_date', 'name', 'phone', 'e
 
 export default function Customers() {
   const { isAdmin, profile } = useAuth()
+  const viewAll = isAdmin || !!profile?.can_view_all_leads   // may see every lead (editing stays with the assigned sales person)
+  const canEditRow = (r: Partial<Customer>) => isAdmin || !r.id || r.owner_id === profile?.id
   const staff = useStaff()
   const { products, reload: reloadProducts } = useProducts()
   const [prodOpen, setProdOpen] = useState(false)
@@ -150,6 +152,7 @@ export default function Customers() {
   const txt = (k: keyof Customer, label: string, locked = false) => (
     <div className="field"><label>{label} {locked && !isAdmin && <Lock size={11} className="i" />}</label><input disabled={locked && !isAdmin} value={(edit?.[k] as string) ?? ''} onChange={(e) => set(k, e.target.value)} /></div>
   )
+  const viewOnly = !!edit?.id && !canEditRow(edit)
   const live = edit?.id ? rows.find((r) => r.id === edit.id) : undefined
   const chip = (on: boolean, label: string, onClick: () => void) => <button type="button" className={'chip' + (on ? ' on' : '')} onClick={onClick}>{label}</button>
   const waLink = (p?: string | null) => (p ? `https://wa.me/${p.replace(/\D/g, '')}` : null)
@@ -178,7 +181,7 @@ export default function Customers() {
 
   return (
     <>
-      <PageHeader title={isAdmin ? 'Follow-Up Customers' : 'My Follow-Up Customers'} sub={isAdmin ? 'Main list. Each sales person only sees the leads assigned to them.' : 'Leads assigned to you.'}>
+      <PageHeader title={viewAll ? 'Follow-Up Customers' : 'My Follow-Up Customers'} sub={viewAll ? (isAdmin ? 'Main list. Each sales person only sees the leads assigned to them.' : 'All leads. You can edit the ones assigned to you; the rest are view only.') : 'Leads assigned to you.'}>
         <button onClick={() => setVoice(true)}><Mic size={16} />Voice update</button>
         {isAdmin && <CsvImport onRows={importRows} />}
         {isAdmin && <button onClick={() => { if (!sel.length) setSel(shown.filter((r) => !r.owner_id && !r.owner_name).map((r) => r.id)); setAssignOpen(true) }}><UserCheck size={16} />Assign leads</button>}
@@ -197,7 +200,7 @@ export default function Customers() {
         <Select value={pri} onChange={setPri} options={[{ value: 'all', label: 'All priorities' }, ...PRI]} />
         <Select value={batch} onChange={setBatch} options={[{ value: 'all', label: 'All webinars', hint: String(rows.length) }, ...batches.map((b) => ({ value: b.label, label: b.label, hint: String(b.n) }))]} />
         <Select value={statusF} onChange={setStatusF} options={[{ value: 'all', label: 'Any status' }, ...LEAD_STATUS.map(({ value, label }) => ({ value, label, hint: String(statusCount(value)) })), { value: 'none', label: 'No status' }]} />
-        {isAdmin && <Select value={owner} onChange={setOwner} options={[{ value: 'all', label: 'All sales' }, { value: 'none', label: 'Unassigned' }, ...owners.map((n) => ({ value: n, label: n, hint: String(rows.filter((r) => ownerOf(r) === n).length) }))]} />}
+        {viewAll && <Select value={owner} onChange={setOwner} options={[{ value: 'all', label: 'All sales' }, { value: 'none', label: 'Unassigned' }, ...owners.map((n) => ({ value: n, label: n, hint: String(rows.filter((r) => ownerOf(r) === n).length) }))]} />}
         <span className="muted sm-text">{shown.length} customers</span>
         <Msg text={toast} />
       </div>
@@ -213,7 +216,7 @@ export default function Customers() {
       )}
       <div className="card flush table-wrap">
         <table>
-          <thead><tr>{isAdmin && <th style={{ width: 40 }}><input type="checkbox" aria-label="Select this page" checked={pageRows.length > 0 && pageRows.every((r) => sel.includes(r.id))} onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...pageRows.map((r) => r.id)])] : sel.filter((id) => !pageRows.some((r) => r.id === id)))} style={{ width: 'auto' }} /></th>}<th>Priority</th><th>Name</th><th>Phone</th><th>Industry</th>{isAdmin && <th>Sales</th>}<th>Webinar</th><th>Call</th><th style={{ minWidth: 200 }}>Status</th><th className="sticky-end" style={{ width: 52 }}></th></tr></thead>
+          <thead><tr>{isAdmin && <th style={{ width: 40 }}><input type="checkbox" aria-label="Select this page" checked={pageRows.length > 0 && pageRows.every((r) => sel.includes(r.id))} onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...pageRows.map((r) => r.id)])] : sel.filter((id) => !pageRows.some((r) => r.id === id)))} style={{ width: 'auto' }} /></th>}<th>Priority</th><th>Name</th><th>Phone</th><th>Industry</th>{viewAll && <th>Sales</th>}<th>Webinar</th><th>Call</th><th style={{ minWidth: 200 }}>Status</th><th className="sticky-end" style={{ width: 52 }}></th></tr></thead>
           <tbody>
             {pageRows.map((r) => {
               const st = statusOf(r.lead_status)
@@ -223,10 +226,10 @@ export default function Customers() {
                   <td><PriorityBadge p={r.priority} /></td>
                   <td><span className="cell-title">{r.name}</span> {isBought(r) && <span className="tag good"><BadgeCheck size={12} />Purchased</span>} {r.prospect && <Star size={14} className="i" style={{ color: '#eab308' }} />}</td>
                   <td>{r.phone && <a href={waLink(r.phone)!} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}</td>
-                  <td>{r.industry}</td>{isAdmin && <td>{ownerOf(r) || <span className="muted">—</span>}</td>}<td>{r.batch}{isAdmin && r.batch_date && r.batch_date >= today() && <span className="tag brand" style={{ marginLeft: 6 }} title="Staff cannot see this webinar until the day after it">Upcoming</span>}</td>
+                  <td>{r.industry}</td>{viewAll && <td>{ownerOf(r) || <span className="muted">—</span>}</td>}<td>{r.batch}{isAdmin && r.batch_date && r.batch_date >= today() && <span className="tag brand" style={{ marginLeft: 6 }} title="Staff cannot see this webinar until the day after it">Upcoming</span>}</td>
                   <td>{r.called ? <PhoneCall size={16} className="i" style={{ color: 'var(--ok)' }} /> : r.not_available ? <PhoneOff size={16} className="i" style={{ color: 'var(--muted)' }} /> : null}</td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    <Select value={r.lead_status ?? ''} onChange={(v) => changeStatus(r, v)} placeholder="Set status" options={STATUS_OPTS} />
+                    <Select value={r.lead_status ?? ''} disabled={!canEditRow(r)} onChange={(v) => changeStatus(r, v)} placeholder="Set status" options={STATUS_OPTS} />
                     {r.lead_status && NEEDS_REASON.includes(r.lead_status) && r.status_remark && <div className="muted sm-text clamp2" style={{ maxWidth: 230, marginTop: 3 }} title={r.status_remark}>{r.status_remark}</div>}
                     {(r.lead_status === 'pending_demo' || r.lead_status === 'pending_consultation') && (() => { const d = demoOf(r.id); const k = r.lead_status === 'pending_consultation' ? 'Consultation' : 'Demo'; return <div className="muted sm-text" style={{ marginTop: 3 }}>{d ? <>{k}: <b>{d.staff_name ?? 'TBC'}</b> · {demoWhen(d)}</> : 'Not booked in AIGOAL yet'}</div> })()}
                     {r.lead_status === 'invite_webinar' && <div className="muted sm-text" style={{ marginTop: 3 }}>Invite to <b>{niceDay(r.webinar_invite_date)}</b> webinar</div>}
@@ -260,7 +263,8 @@ export default function Customers() {
             </div>
           )}
 
-          <form onSubmit={save}>
+          {viewOnly && <div className="lockbar"><Lock size={13} /> View only: this lead is assigned to {ownerOf(edit as Customer) || 'someone else'}. Only they (or Admin) can change it.</div>}
+          <form onSubmit={save}><fieldset disabled={viewOnly} className="plain-fs">
             {tab === 'details' && (
               <>
                 <div className="sect">
@@ -340,7 +344,7 @@ export default function Customers() {
                     {txt('not_interested_reason', 'Not interested: reason')}{txt('result', 'Follow-up result')}
                   </div>
                 </div>
-                {edit.id && <AccountNotes accountId={edit.id} table="customer_notes" fk="customer_id" kinds={['followup', 'call', 'remark']} />}
+                {edit.id && <AccountNotes accountId={edit.id} table="customer_notes" fk="customer_id" kinds={['followup', 'call', 'remark']} readOnly={viewOnly} />}
                 {!edit.id && <p className="muted sm-text">Save the customer first, then add follow-ups here.</p>}
               </>
             )}
@@ -350,13 +354,13 @@ export default function Customers() {
             {tab !== 'history' && (
               <>
                 {err && <Alert text={err} />}
-                <div className="modal-foot">
+                {!viewOnly && <div className="modal-foot">
                   <button className="primary"><Save size={16} />Save</button>
                   {edit.id && isAdmin && <button type="button" className="danger" onClick={del}><Trash2 size={16} />Delete</button>}
-                </div>
+                </div>}
               </>
             )}
-          </form>
+          </fieldset></form>
         </Modal>
       )}
 
