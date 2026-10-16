@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { addDays, addMonths, dayLabel, monthLabel, monthStart, today } from '../lib/util'
 import { Alert, DatePicker, Empty, NumberInput, PageHeader, Select } from '../components/ui'
+import TodoBoard from '../components/TodoBoard'
 import TodoChart, { type DayCount } from '../components/TodoChart'
 import type { Todo } from '../lib/types'
 
@@ -18,7 +19,7 @@ export default function Todos() {
   const staff = allStaff.filter((s) => s.role !== 'admin') // admin-level accounts are not listed
   const [uid, setUid] = useState(profile!.id)
   useEffect(() => { if (profile!.role === 'admin' && staff.length && !staff.some((s) => s.id === uid)) setUid(staff[0].id) }, [staff.length])
-  const [view, setView] = useState<'day' | 'month'>('day')
+  const [view, setView] = useState<'board' | 'day' | 'month'>('board')
   const [day, setDay] = useState(today())
   const [month, setMonth] = useState(monthStart(new Date()))
   const [todos, setTodos] = useState<Todo[]>([])
@@ -33,7 +34,7 @@ export default function Todos() {
   const [err, setErr] = useState('')
 
   const load = async () => {
-    const [from, to] = view === 'day' ? [day, day] : [month, addDays(addMonths(month, 1), -1)]
+    const [from, to] = view === 'day' ? [day, day] : [month, addDays(addMonths(month, 1), -1)]  // Board and Month list both show the whole month
     const { data } = await supabase.from('todos').select('*').eq('user_id', uid).gte('due_date', from).lte('due_date', to).order('due_date').order('created_at')
     setTodos((data ?? []) as Todo[])
     const [cf, ct] = view === 'day' ? [addDays(day, -6), day] : [from, to]
@@ -86,13 +87,14 @@ export default function Todos() {
 
   return (
     <>
-      <PageHeader title="To-Do" sub="Plan the day, review the month.">
+      <PageHeader title="To-Do" sub="See the whole month as cards, or plan one day.">
         {isManager && <Select value={uid} onChange={setUid} options={staff.map((s) => ({ value: s.id, label: s.full_name || s.email || '' }))} />}
       </PageHeader>
       <div className="row between" style={{ marginBottom: '1rem' }}>
         <div className="tabs" style={{ margin: 0 }}>
+          <button className={view === 'board' ? 'on' : ''} onClick={() => setView('board')}>Board</button>
           <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>Day</button>
-          <button className={view === 'month' ? 'on' : ''} onClick={() => setView('month')}>Month</button>
+          <button className={view === 'month' ? 'on' : ''} onClick={() => setView('month')}>Month list</button>
         </div>
         <div className="date-nav">
           <button className="icon" aria-label="Previous" onClick={() => step(-1)}><ChevronLeft size={17} /></button>
@@ -102,7 +104,7 @@ export default function Todos() {
         </div>
       </div>
 
-      {inbox.length > 0 && (
+      {view !== 'board' && inbox.length > 0 && (
         <div className="card inbox">
           <div className="card-head"><h2><CalendarClock size={17} className="i" />To schedule ({inbox.length})</h2><span className="muted sm-text">Pick the day you will do each task</span></div>
           {inbox.map((t) => (
@@ -116,7 +118,9 @@ export default function Todos() {
         </div>
       )}
 
-      <div className="card">
+      {view === 'board' && <TodoBoard cards={[...inbox, ...todos]} uid={uid} month={month} onChange={load} />}
+
+      {view !== 'board' && <div className="card">
         <div className="row between" style={{ marginBottom: '.5rem' }}>
           <span className="muted">{done} of {todos.length} completed{todos.some((t) => t.duration_min) && ` · planned ${dur(todos.reduce((n, t) => n + (t.duration_min ?? 0), 0))}`}</span><b>{pct}%</b>
         </div>
@@ -151,7 +155,7 @@ export default function Todos() {
           </div>
         ))}
         {view === 'month' && !todos.length && <Empty icon={CalendarDays} title="No tasks this month" />}
-      </div>
+      </div>}
 
       <TodoChart data={trend} selected={view === 'day' ? day : undefined} title={view === 'day' ? 'Last 7 days' : `${monthLabel(month)} at a glance`} />
     </>
