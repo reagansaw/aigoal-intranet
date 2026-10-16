@@ -214,7 +214,7 @@ export default function Home() {
 
   const stages = useMemo(() => {
     const c: Record<string, number> = { o1: 0, dev: 0, devdone: 0, o2: 0, o3: 0, complete: 0 }
-    accounts.forEach((a) => { c[buildPipeline(a, sessions).stage]++ })
+    accounts.forEach((a) => { const st = buildPipeline(a, sessions).stage; if (st in c) c[st]++ })
     return c
   }, [accounts, sessions])
 

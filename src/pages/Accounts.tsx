@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeCheck, Bell, Mic, MessageCircle, CalendarClock, Check, Eye, Hammer, History, Lock, MessageSquare, Pencil, Plus, Receipt, Save, Trash2, Undo2, UserCog, Video, Wrench } from 'lucide-react'
+import { BadgeCheck, Bell, Mic, Snowflake, MessageCircle, CalendarClock, Check, Eye, Hammer, History, Lock, MessageSquare, Pencil, Plus, Receipt, Save, Trash2, Undo2, UserCog, Video, Wrench } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useStaff } from '../lib/useStaff'
@@ -16,7 +16,7 @@ import { Alert, DatePicker, Empty, Menu, Msg, PageHeader, Pagination, SearchBox,
 import type { AccountNote, OnboardingSession, PurchaseAccount } from '../lib/types'
 
 const IN_USE = [{ value: '', label: 'Unknown' }, { value: 'Y', label: 'Yes, in use' }, { value: 'P', label: 'Partially' }, { value: 'N', label: 'Not using' }]
-const STAGE_LABEL: Record<string, string> = { o1: 'Onboarding 1', dev: 'Ready to develop', devdone: 'Developing', o2: 'Onboarding 2', o3: 'Onboarding 3', complete: 'Completed' }
+const STAGE_LABEL: Record<string, string> = { o1: 'Onboarding 1', dev: 'Ready to develop', devdone: 'Developing', o2: 'Onboarding 2', o3: 'Onboarding 3', complete: 'Completed', frozen: 'Frozen' }
 const CATEGORIES = [{ value: '', label: '— None —' }, ...['AIGOAL Conversion', 'Both', 'AI Studio', 'Marketing Services'].map((v) => ({ value: v, label: v }))]
 const driveOk = (u: string) => /^https:\/\/(drive|docs)\.google\.com\//i.test(u.trim())
 const waUrl = (u?: string | null) => { const v = (u ?? '').trim(); if (!v) return null; const full = /^https?:\/\//i.test(v) ? v : /whatsapp\.com/i.test(v) ? 'https://' + v : null; return full }
@@ -42,6 +42,8 @@ export default function Accounts() {
   const [remindFor, setRemindFor] = useState<{ id: string; pid: string; name: string } | null>(null)
   const [remindText, setRemindText] = useState('')
   const [voice, setVoice] = useState(false)
+  const [freezeFor, setFreezeFor] = useState<{ id: string; name: string; frozen: boolean } | null>(null)
+  const [freezeText, setFreezeText] = useState('')
   const remindWhat = (id: string) => { const n = (notesBy.get(id) ?? []).find((x) => x.kind === 'reminder' && x.body.startsWith('Reminder sent to')); const i = n ? n.body.indexOf(': ') : -1; return i > 0 ? n!.body.slice(i + 2) : '' }
   const [bump, setBump] = useState(0)
   const me = profile!.id
@@ -143,6 +145,7 @@ export default function Accounts() {
         <Stat icon={Wrench} tone="yellow" label="Developing" value={count('devdone')} active={stage === 'devdone'} onClick={() => tile('devdone')} />
         <Stat icon={CalendarClock} tone="gray" label="Onboarding 2 / 3" value={count('o2', 'o3')} active={stage === 'o23'} onClick={() => tile('o23')} />
         <Stat icon={BadgeCheck} tone="green" label="Completed" value={count('complete')} active={stage === 'complete'} onClick={() => tile('complete')} />
+        <Stat icon={Snowflake} tone="gray" label="Frozen" value={count('frozen')} active={stage === 'frozen'} onClick={() => tile('frozen')} />
       </div>
 
       <div className="row" style={{ marginBottom: '1rem' }}>
@@ -202,7 +205,8 @@ export default function Accounts() {
                       {mine && p.stage === 'dev' && <button className="sm primary" onClick={() => act(r.id, 'start')}><Hammer size={14} />Develop</button>}
                       {mine && p.stage === 'devdone' && <button className="sm primary" onClick={() => act(r.id, 'done')}><Check size={14} />Develop Done</button>}
                       <div className="row" style={{ gap: '.3rem', flexWrap: 'nowrap' }}>
-                        <Menu label="Remind" icon={Bell} options={remindOptions} onPick={(pid) => { setRemindText(''); setRemindFor({ id: r.id, pid, name: remindOptions.find((o) => o.value === pid)?.label ?? '' }) }} />
+                        {!r.frozen && <Menu label="Remind" icon={Bell} options={remindOptions} onPick={(pid) => { setRemindText(''); setRemindFor({ id: r.id, pid, name: remindOptions.find((o) => o.value === pid)?.label ?? '' }) }} />}
+                        {isAdmin && <button className="ghost icon sm" title={r.frozen ? 'Unfreeze' : 'Freeze account'} aria-label={r.frozen ? 'Unfreeze' : 'Freeze account'} onClick={() => { setFreezeText(''); setFreezeFor({ id: r.id, name: r.account_name, frozen: !!r.frozen }) }}><Snowflake size={15} style={r.frozen ? { color: 'var(--brand)' } : undefined} /></button>}
                         <button className="ghost icon sm" aria-label={mine ? 'Edit' : 'View'} onClick={() => open(r)}>{mine ? <Pencil size={15} /> : <Eye size={15} />}</button>
                       </div>
                     </div>
@@ -245,6 +249,7 @@ export default function Accounts() {
                   <div className="row">
                     {canBuild(edit) && cur.p.stage === 'dev' && <button type="button" className="primary" onClick={() => act(cur.r.id, 'start')}><Hammer size={16} />Develop</button>}
                     {canBuild(edit) && cur.p.stage === 'devdone' && <button type="button" className="primary" onClick={() => act(cur.r.id, 'done')}><Check size={16} />Develop Done</button>}
+                    {isAdmin && <button type="button" onClick={() => { setFreezeText(''); setFreezeFor({ id: cur.r.id, name: cur.r.account_name, frozen: !!cur.r.frozen }) }}><Snowflake size={16} />{cur.r.frozen ? 'Unfreeze account' : 'Freeze account'}</button>}
                     {isAdmin && cur.p.stage === 'o1' && <button type="button" onClick={() => act(cur.r.id, 'start')}><Hammer size={16} />Start develop anyway</button>}
                     {isAdmin && (cur.r.develop_started_at || cur.r.develop_done_at) && <button type="button" className="ghost" onClick={() => confirm('Undo the Develop steps for this account?') && act(cur.r.id, 'reset')}><Undo2 size={16} />Undo develop</button>}
                   </div>
@@ -336,6 +341,15 @@ export default function Accounts() {
       )}
 
       {voice && <VoiceUpdate page="account" onClose={() => setVoice(false)} onDone={load} />}
+      {freezeFor && (
+        <Modal title={freezeFor.frozen ? `Unfreeze ${freezeFor.name}` : `Freeze ${freezeFor.name}`} onClose={() => setFreezeFor(null)}>
+          {freezeFor.frozen ? <p className="muted" style={{ marginTop: 0 }}>The account goes back into the onboarding flow where it left off.</p> : (<>
+            <p className="muted" style={{ marginTop: 0 }}>A frozen account stops showing in the onboarding queues (ready to develop, developing, reminders). Nothing is deleted, and you can unfreeze it any time.</p>
+            <div className="field"><label>Why is it frozen? (required)</label><textarea autoFocus value={freezeText} onChange={(e) => setFreezeText(e.target.value)} placeholder="e.g. Customer asked to stop AIGOAL / on hold until December" /></div>
+          </>)}
+          <div className="modal-foot"><button className="primary" disabled={!freezeFor.frozen && !freezeText.trim()} onClick={async () => { if (await rpc('set_account_frozen', { account_id: freezeFor.id, do_freeze: !freezeFor.frozen, reason: freezeText.trim() || null })) { setFreezeFor(null); setEdit(null) } }}><Snowflake size={16} />{freezeFor.frozen ? 'Unfreeze' : 'Freeze account'}</button></div>
+        </Modal>
+      )}
       {remindFor && (
         <Modal title={`Remind ${remindFor.name}`} onClose={() => setRemindFor(null)}>
           <p className="muted" style={{ marginTop: 0 }}>This account becomes “Pending {remindFor.name}” and shows on their dashboard. Say what you need from them.</p>

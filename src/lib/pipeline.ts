@@ -1,7 +1,7 @@
 import type { OnboardingSession, PurchaseAccount } from './types'
 
 export type StepKey = 'o1' | 'dev' | 'devdone' | 'o2' | 'o3'
-export type StageKey = StepKey | 'complete'
+export type StageKey = StepKey | 'complete' | 'frozen'
 export interface Step { key: StepKey; label: string; state: 'done' | 'active' | 'pending'; sub?: string }
 export interface Pipeline { steps: Step[]; stage: StageKey; stageLabel: string; stageSub?: string; o1Done: boolean; started: boolean; finished: boolean }
 
@@ -44,7 +44,7 @@ export function buildPipeline(a: PurchaseAccount, sessions: OnboardingSession[])
     return { key, label, state: 'pending' }
   })
   const active = steps.find((s) => s.state === 'active')
-  const stage: StageKey = active ? active.key : 'complete'
-  const stageLabel = { o1: 'Onboarding 1', dev: 'Ready to develop', devdone: 'Developing', o2: 'Onboarding 2', o3: 'Onboarding 3', complete: 'Completed' }[stage]
-  return { steps, stage, stageLabel, stageSub: stage === 'o1' || stage === 'o2' || stage === 'o3' ? active?.sub : stage === 'devdone' && a.develop_started_at ? `since ${day(a.develop_started_at)}` : undefined, o1Done: r1.done, started, finished: !active }
+  const stage: StageKey = a.frozen ? 'frozen' : active ? active.key : 'complete'
+  const stageLabel = { o1: 'Onboarding 1', dev: 'Ready to develop', devdone: 'Developing', o2: 'Onboarding 2', o3: 'Onboarding 3', complete: 'Completed', frozen: 'Frozen' }[stage]
+  return { steps, stage, stageLabel, stageSub: stage === 'frozen' ? a.frozen_reason ?? undefined : stage === 'o1' || stage === 'o2' || stage === 'o3' ? active?.sub : stage === 'devdone' && a.develop_started_at ? `since ${day(a.develop_started_at)}` : undefined, o1Done: r1.done, started, finished: !active }
 }

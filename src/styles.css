@@ -517,3 +517,4 @@ tr.picked td { background: var(--brand-soft); }
 .spark i { flex: 1; min-width: 6px; border-radius: 3px; background: var(--surface-2); position: relative; overflow: hidden; height: 100%; }
 .spark i b { position: absolute; left: 0; right: 0; bottom: 0; background: var(--ok); border-radius: 3px; }
 .spark i.some { background: color-mix(in srgb, var(--warn) 35%, var(--surface-2)); }
+.stage-label.frozen { color: var(--brand); }

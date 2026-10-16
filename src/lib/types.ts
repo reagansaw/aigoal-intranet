@@ -165,6 +165,10 @@ export interface Customer {
 
 export interface PurchaseAccount {
   id: string
+  frozen: boolean
+  frozen_reason: string | null
+  frozen_at: string | null
+  frozen_by_name: string | null
   builder_ids: string[]
   pending_on_id: string | null
   pending_on_name: string | null
