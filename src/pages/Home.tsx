@@ -84,11 +84,11 @@ function TeamStatus({ team, hidden, setHidden }: { team: StaffRow[]; hidden: str
   const shown = team.filter((s) => !hidden.includes(s.id))
   // everyone's to-dos around today: used for the Day / Week / Month marks and the 7-day graph on each card
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day')
-  const [all, setAll] = useState<Record<string, Pick<Todo, 'due_date' | 'done' | 'created_at' | 'done_at'>[]>>({})
+  const [all, setAll] = useState<Record<string, Pick<Todo, 'due_date' | 'done' | 'created_at' | 'done_at' | 'delayed_days'>[]>>({})
   useEffect(() => {
     const t = today()
-    supabase.from('todos').select('user_id, due_date, done, created_at, done_at').gte('due_date', addDays(t, -45)).lte('due_date', addDays(t, 45)).limit(10000).then(({ data }) => {
-      const m: Record<string, Pick<Todo, 'due_date' | 'done' | 'created_at' | 'done_at'>[]> = {}
+    supabase.from('todos').select('user_id, due_date, done, created_at, done_at, delayed_days').gte('due_date', addDays(t, -45)).lte('due_date', addDays(t, 45)).limit(10000).then(({ data }) => {
+      const m: Record<string, Pick<Todo, 'due_date' | 'done' | 'created_at' | 'done_at' | 'delayed_days'>[]> = {}
       ;(data ?? []).forEach((x: any) => (m[x.user_id] ||= []).push(x))
       setAll(m)
     })
@@ -123,7 +123,7 @@ function TeamStatus({ team, hidden, setHidden }: { team: StaffRow[]; hidden: str
                 <div style={{ minWidth: 0, flex: 1 }}><div className="cell-title">{s.name}</div><div className="muted sm-text">{s.title || s.role}</div></div>
                 {s.must_change_password ? <span className="tag">Not signed in yet</span> : s.away_today === 'leave' ? <span className="tag warn">On leave</span> : s.away_today === 'travel' ? <span className="tag brand">Travelling</span> : <span className={'sm-text ' + (online ? 'ok' : 'muted')}>{online ? 'Online' : ago(s.last_seen_at)}</span>}
               </div>
-              {(() => { const mk = tally((all[s.id] ?? []).filter((x) => x.due_date && x.due_date >= rf && x.due_date <= rt)); return (
+              {(() => { const inR = (all[s.id] ?? []).filter((x) => x.due_date && x.due_date >= rf && x.due_date <= rt); const mk = tally(inR); const dl = inR.filter((x) => x.delayed_days > 0); const dlDays = dl.reduce((n, x) => n + x.delayed_days, 0); return (
                 <div className="team-block">
                   <div className="team-label"><span>Marks · {range === 'day' ? 'today' : range === 'week' ? 'this week' : 'this month'}</span><b>{mk.total ? `${mk.done}/${mk.total} = ${mk.score}%` : 'No to-do'}</b></div>
                   <div className="bar"><i style={{ width: `${mk.score ?? 0}%` }} /></div>
@@ -131,7 +131,8 @@ function TeamStatus({ team, hidden, setHidden }: { team: StaffRow[]; hidden: str
                     {mk.total > 0 && <span className="tag good">{mk.done} done</span>}
                     {mk.missed > 0 && <span className="tag warn">{mk.missed} not done</span>}
                     {mk.open > 0 && <span className="tag">{mk.open} open</span>}
-                    {s.todos_unscheduled > 0 && <span className="tag">{s.todos_unscheduled} to schedule</span>}
+                    {dl.length > 0 && <span className="tag bad" title="Tasks moved to a later day (recorded, cannot be edited)">{dl.length} delayed · {dlDays} day{dlDays > 1 ? 's' : ''}</span>}
+                    {s.todos_unscheduled > 0 && <span className="tag">{s.todos_unscheduled} waiting for a day</span>}
                     {s.meeting_overdue > 0 && <span className="tag warn">{s.meeting_overdue} meeting actions late</span>}
                   </div>
                 </div>) })()}

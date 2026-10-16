@@ -31,6 +31,9 @@ export interface Todo {
   status: 'todo' | 'doing' | 'done'
   created_at: string
   done_at: string | null
+  original_due: string | null
+  delayed_days: number
+  delay_log: { from: string; to: string; at: string; by: string }[]
   deadline: string | null
   source: string | null
   meeting_task_id: string | null

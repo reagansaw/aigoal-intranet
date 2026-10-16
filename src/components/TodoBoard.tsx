@@ -5,6 +5,7 @@ import { addDays, dayLabel, today } from '../lib/util'
 import { outcomeOf, klDay } from '../lib/todo'
 import type { Todo } from '../lib/types'
 import Modal from './Modal'
+import { DelayTag } from './TodayView'
 import { Alert, DatePicker, Menu, NumberInput, Select } from './ui'
 
 type Col = 'todo' | 'done'
@@ -44,7 +45,6 @@ export default function TodoBoard({ cards, uid, month, fallbackDay, onChange }: 
     if (error) return setErr(error.message)
     setEdit(null); setIsNew(false); setErr(''); onChange()
   }
-  const copyToday = async (t: Todo) => { await supabase.from('todos').insert({ user_id: uid, title: t.title, notes: t.notes, due_date: today(), duration_min: t.duration_min, priority: t.priority }); onChange() }
   const del = async () => { if (edit && confirm('Delete this card?')) { await supabase.from('todos').delete().eq('id', edit.id); setEdit(null); onChange() } }
 
   return (
@@ -67,7 +67,7 @@ export default function TodoBoard({ cards, uid, month, fallbackDay, onChange }: 
                     {t.notes && <div className="bcard-notes">{t.notes}</div>}
                     <div className="bcard-meta">
                       <span className="tag" title="Created date">Created {dayLabel(klDay(t.created_at))}</span>
-                      {outcomeOf(t) === 'done' && <span className="tag good">Done</span>}{outcomeOf(t) === 'missed' && <span className="tag bad">Not done</span>}
+                      {outcomeOf(t) === 'done' && <span className="tag good">Done</span>}{outcomeOf(t) === 'missed' && <span className="tag bad">Not done</span>}<DelayTag t={t} />
                       {t.due_date && <span className={'tag' + (outcomeOf(t) === 'missed' ? ' warn' : '')} title="Due date"><CalendarClock size={11} />Due {dayLabel(t.due_date)}</span>}
                       {t.duration_min ? <span className="tag"><Timer size={11} />{dur(t.duration_min)}</span> : null}
                       {t.priority === 'high' && <span className="tag warn">High</span>}
@@ -91,7 +91,7 @@ export default function TodoBoard({ cards, uid, month, fallbackDay, onChange }: 
           <div className="field"><label>Title</label><input autoFocus value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></div>
           <div className="form-grid">
             <div className="field"><label>Created date</label><input disabled value={dayLabel(klDay(edit.created_at))} title="Set automatically" /></div>
-            <div className="field"><label>Due date</label><DatePicker value={edit.due_date ?? ''} clearable={false} onChange={(v) => setEdit({ ...edit, due_date: v || null })} /></div>
+            <div className="field"><label>Due date {edit.id && edit.due_date && <span className="muted sm-text">· moving it later records a delay</span>}</label><DatePicker value={edit.due_date ?? ''} clearable={false} onChange={(v) => setEdit({ ...edit, due_date: v || null })} /></div>
             <div className="field"><label>Time needed</label>
               <div className="row" style={{ flexWrap: 'nowrap' }}><div style={{ flex: 1 }}><NumberInput value={edit.duration_min ? (unit === 'h' ? Math.round((edit.duration_min / 60) * 100) / 100 : edit.duration_min) : null} onChange={(n) => setEdit({ ...edit, duration_min: n ? Math.round(n * (unit === 'h' ? 60 : 1)) : null })} placeholder="e.g. 30" /></div>
                 <Select value={unit} onChange={setUnit} options={[{ value: 'min', label: 'minutes' }, { value: 'h', label: 'hours' }]} /></div></div>
@@ -100,8 +100,9 @@ export default function TodoBoard({ cards, uid, month, fallbackDay, onChange }: 
           </div>
           <div className="field"><label>Remarks</label><textarea style={{ minHeight: 90 }} value={edit.notes ?? ''} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} placeholder="Details, links, what done looks like…" /></div>
           {edit.source && <p className="muted sm-text">From: {edit.source}</p>}
+          {edit.delayed_days > 0 && <p className="sm-text"><DelayTag t={edit} /> {edit.delay_log?.map((l, i) => <span key={i} className="muted"> · {dayLabel(l.from)} → {dayLabel(l.to)}</span>)}</p>}
           {err && <Alert text={err} />}
-          <div className="modal-foot"><button className="primary" onClick={save}><Save size={16} />{isNew ? 'Add card' : 'Save'}</button>{!isNew && outcomeOf(edit) === 'missed' && <button type="button" onClick={async () => { await copyToday(edit); setEdit(null) }}>Copy to today</button>}{!isNew && <button className="danger" onClick={del}><Trash2 size={16} />Delete</button>}</div>
+          <div className="modal-foot"><button className="primary" onClick={save}><Save size={16} />{isNew ? 'Add card' : 'Save'}</button>{!isNew && <button className="danger" onClick={del}><Trash2 size={16} />Delete</button>}</div>
         </Modal>
       )}
     </>

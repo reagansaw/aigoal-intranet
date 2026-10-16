@@ -34,11 +34,11 @@ export default function TodayTodo({ me, todos, setTodos }: { me: string; todos: 
   const closeDay = async () => {
     setBusy(true)
     const open = todos.filter((t) => !t.done)
-    // unfinished tasks are NOT moved: they stay behind as "not done"; a fresh copy is made for tomorrow if wanted
-    if (carry && open.length) await supabase.from('todos').insert(open.map((t) => ({ user_id: me, title: t.title, notes: t.notes, due_date: addDays(day, 1), duration_min: t.duration_min, priority: t.priority })))
+    // unfinished tasks are moved to tomorrow: the database records the delay on each one (cannot be edited)
+    if (carry && open.length) await supabase.from('todos').update({ due_date: addDays(day, 1) }).in('id', open.map((t) => t.id))
     const row = { user_id: me, day, done, total: todos.length, carried: carry ? open.length : 0, note: note.trim() || null }
     await supabase.from('todo_day_marks').upsert(row)
-    setClosed(row); setBusy(false)
+    setClosed(row); if (carry && open.length) setTodos(todos.filter((t) => t.done)); setBusy(false)
   }
 
   const m = mark(closed ? (closed.total ? Math.round((closed.done / closed.total) * 100) : 100) : pct)
@@ -66,14 +66,14 @@ export default function TodayTodo({ me, todos, setTodos }: { me: string; todos: 
       {closed ? (
         <div className="pend none" style={{ marginTop: '.8rem', display: 'block' }}>
           <b><CheckCircle2 size={14} className="i" /> Day closed · <span className={'tag ' + m.tag}>{m.label}</span> {closed.done}/{closed.total} done ({closed.total ? Math.round((closed.done / closed.total) * 100) : 100}%)</b>
-          {closed.carried > 0 && <div className="muted sm-text">{closed.carried} unfinished copied to tomorrow. Today's stay as not done.</div>}
+          {closed.carried > 0 && <div className="muted sm-text">{closed.carried} unfinished moved to tomorrow (recorded as delayed).</div>}
           {closed.note && <div className="sm-text" style={{ marginTop: 2 }}>{closed.note}</div>}
         </div>
       ) : evening && closed !== undefined && todos.length > 0 && (
         <div className="pend none" style={{ marginTop: '.8rem', display: 'block' }}>
           <b><Moon size={14} className="i" /> End of day · {done}/{todos.length} done ({pct}%) · <span className={'tag ' + m.tag}>{m.label}</span></b>
           <textarea style={{ minHeight: 56, margin: '.5rem 0' }} placeholder="Anything to note about today? (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-          {left > 0 && <label className="row" style={{ gap: '.5rem', cursor: 'pointer', marginBottom: '.5rem' }}><input type="checkbox" checked={carry} onChange={(e) => setCarry(e.target.checked)} style={{ width: 'auto' }} />Copy the {left} unfinished to tomorrow (today's stay as not done)</label>}
+          {left > 0 && <label className="row" style={{ gap: '.5rem', cursor: 'pointer', marginBottom: '.5rem' }}><input type="checkbox" checked={carry} onChange={(e) => setCarry(e.target.checked)} style={{ width: 'auto' }} />Move the {left} unfinished to tomorrow (recorded as delayed 1 day)</label>}
           <button className="primary sm" disabled={busy} onClick={closeDay}>{busy ? 'Saving…' : 'Close my day'}</button>
         </div>
       )}
