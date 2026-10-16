@@ -12,7 +12,7 @@ import VoiceUpdate from '../components/VoiceUpdate'
 import AuditTrail from '../components/AuditTrail'
 import AccountNotes from '../components/AccountNotes'
 import { PipelineDots, Stepper } from '../components/Pipeline'
-import { Alert, DatePicker, Empty, Menu, Msg, PageHeader, Pagination, SearchBox, Select, Stat, usePaged, type Option } from '../components/ui'
+import { Alert, ColumnFilter, DatePicker, Empty, Menu, Msg, PageHeader, Pagination, SearchBox, Select, Stat, usePaged, type Option } from '../components/ui'
 import type { AccountNote, OnboardingSession, PurchaseAccount } from '../lib/types'
 
 const IN_USE = [{ value: '', label: 'Unknown' }, { value: 'Y', label: 'Yes, in use' }, { value: 'P', label: 'Partially' }, { value: 'N', label: 'Not using' }]
@@ -78,13 +78,27 @@ export default function Accounts() {
   const ownerNames = useMemo(() => [...new Set(rows.map((r) => r.owner_name).filter(Boolean))] as string[], [rows])
   const pendingNames = useMemo(() => [...new Set(rows.map((r) => r.pending_on_name).filter(Boolean))] as string[], [rows])
 
-  const shown = withP.filter(({ r, p, openIssues }) =>
+  // header / toolbar filters (tick lists); they add to the tiles and dropdowns above
+  const [cf, setCf] = useState<Record<string, string[]>>({})
+  const setCol = (k: string) => (v: string[]) => setCf((x) => ({ ...x, [k]: v }))
+  const fuState = (x: { r: PurchaseAccount; last?: AccountNote; next?: AccountNote; openIssues: number }) => x.openIssues > 0 ? 'issue' : x.r.pending_on_id ? 'pending' : x.next?.next_action ? 'next' : x.last ? 'done' : 'none'
+  const colOk = (x: (typeof withP)[number]) =>
+    (!cf.category?.length || cf.category.includes(x.r.category || '—')) && (!cf.industry?.length || cf.industry.includes(x.r.industry || '—')) &&
+    (!cf.sales?.length || cf.sales.includes(x.r.owner_name || '—')) && (!cf.builder?.length || cf.builder.includes(x.r.ai_builder || '—')) &&
+    (!cf.stage?.length || cf.stage.includes(x.p.stage)) && (!cf.followup?.length || cf.followup.includes(fuState(x)))
+  const opts = (get: (x: (typeof withP)[number]) => string, label?: (v: string) => string, order?: string[]) => {
+    const m = new Map<string, number>(); withP.forEach((x) => m.set(get(x), (m.get(get(x)) ?? 0) + 1))
+    const keys = order ? order.filter((k) => m.has(k)) : [...m.keys()].sort((a, b) => (m.get(b)! - m.get(a)!) || a.localeCompare(b))
+    return keys.map((k) => ({ value: k, label: label ? label(k) : k, count: m.get(k) }))
+  }
+  const activeCols = Object.values(cf).reduce((n, v) => n + (v.length ? 1 : 0), 0)
+  const shown = withP.filter((x) => colOk(x) && ((({ r, p, openIssues }) =>
     (stage === 'all' || (stage === 'o23' ? ['o2', 'o3'].includes(p.stage) : p.stage === stage)) &&
     (issues === 'all' || openIssues > 0) &&
     (who === 'all' || (who === 'me' ? r.owner_id === me || (r.builder_ids ?? []).includes(me) : who === 'none' ? !r.owner_id && !r.owner_name : r.owner_name === who)) &&
     (pend === 'all' || (pend === 'any' ? !!r.pending_on_id : pend === 'me' ? r.pending_on_id === me : r.pending_on_name === pend)) &&
-    (!q || [r.account_name, r.contact_person, r.phone, r.email, r.industry, r.owner_name, r.ai_builder, r.pending_on_name].join(' ').toLowerCase().includes(q.toLowerCase())))
-  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, stage, issues, who, pend]))
+    (!q || [r.account_name, r.contact_person, r.phone, r.email, r.industry, r.owner_name, r.ai_builder, r.pending_on_name].join(' ').toLowerCase().includes(q.toLowerCase())))(x)))
+  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, stage, issues, who, pend, cf]))
   const tile = (key: string) => setStage(stage === key ? 'all' : key)
 
   // ───── actions ─────
@@ -158,9 +172,16 @@ export default function Accounts() {
         <Msg text={toast} />
       </div>
 
+      <div className="row" style={{ gap: '.5rem', margin: '0 0 .6rem', alignItems: 'center' }}>
+        <span className="muted sm-text">Filter:</span>
+        <ColumnFilter chip label="Sales" options={opts((x) => x.r.owner_name || '—', (v) => (v === '—' ? 'No sales owner' : v))} selected={cf.sales ?? []} onChange={setCol('sales')} />
+        <ColumnFilter chip label="AI Builder" options={opts((x) => x.r.ai_builder || '—', (v) => (v === '—' ? 'No builder' : v))} selected={cf.builder ?? []} onChange={setCol('builder')} />
+        <ColumnFilter chip label="Industry" options={opts((x) => x.r.industry || '—')} selected={cf.industry ?? []} onChange={setCol('industry')} />
+        {activeCols > 0 && <><span className="muted sm-text">{activeCols} filter{activeCols > 1 ? 's' : ''} on · {shown.length} shown</span><button type="button" className="ghost sm" onClick={() => setCf({})}>Clear filters</button></>}
+      </div>
       <div className="card flush table-wrap">
         <table>
-          <thead><tr><th>Customer</th><th>Contact</th><th>Onboarding flow</th><th>Latest follow-up</th><th className="sticky-end" style={{ width: 168 }}></th></tr></thead>
+          <thead><tr><th><ColumnFilter label="Category" text="Customer" options={opts((x) => x.r.category || '—')} selected={cf.category ?? []} onChange={setCol('category')} /></th><th>Contact</th><th><ColumnFilter label="Onboarding flow" options={opts((x) => x.p.stage, (v) => STAGE_LABEL[v] ?? v, ['o1', 'dev', 'devdone', 'o2', 'o3', 'complete', 'frozen'])} selected={cf.stage ?? []} onChange={setCol('stage')} /></th><th><ColumnFilter label="Latest follow-up" options={opts(fuState, (v) => ({ issue: 'Open issue', pending: 'Waiting on someone', next: 'Has a next action', done: 'Followed up', none: 'No follow-up yet' } as Record<string, string>)[v], ['issue', 'pending', 'next', 'done', 'none'])} selected={cf.followup ?? []} onChange={setCol('followup')} /></th><th className="sticky-end" style={{ width: 168 }}></th></tr></thead>
           <tbody>
             {pageRows.map(({ r, p, last, next, openIssues }) => {
               const mine = canBuild(r)

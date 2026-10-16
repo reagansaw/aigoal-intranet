@@ -315,7 +315,7 @@ export function PasswordInput({ value, onChange, placeholder, autoComplete, auto
 }
 
 /** Excel-style filter for a table column: a small funnel in the header that opens a tick list. */
-export function ColumnFilter({ label, options, selected, onChange }: { label: string; options: { value: string; label: string; count?: number }[]; selected: string[]; onChange: (v: string[]) => void }) {
+export function ColumnFilter({ label, text, options, selected, onChange, chip }: { chip?: boolean; text?: string; label: string; options: { value: string; label: string; count?: number }[]; selected: string[]; onChange: (v: string[]) => void }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [pos, setPos] = useState({ left: 0, top: 0 })
@@ -334,9 +334,9 @@ export function ColumnFilter({ label, options, selected, onChange }: { label: st
   const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v])
   return (
     <span className="th-filter">
-      <span>{label}</span>
-      <button type="button" ref={btn} className={'th-fbtn' + (selected.length ? ' on' : '')} aria-label={`Filter ${label}`} title={`Filter ${label}`} onClick={(e) => { e.stopPropagation(); open ? setOpen(false) : show() }}>
-        <Funnel size={13} />{selected.length > 0 && <b>{selected.length}</b>}
+      {!chip && <span>{text ?? label}</span>}
+      <button type="button" ref={btn} className={chip ? 'sel-btn' + (selected.length ? ' on' : '') : 'th-fbtn' + (selected.length ? ' on' : '')} aria-label={`Filter ${label}`} title={`Filter ${label}`} onClick={(e) => { e.stopPropagation(); open ? setOpen(false) : show() }}>
+        {chip ? <><span>{selected.length ? `${label} · ${selected.length}` : label}</span><ChevronDown size={16} className="i sel-chev" /></> : <><Funnel size={13} />{selected.length > 0 && <b>{selected.length}</b>}</>}
       </button>
       {open && createPortal(
         <div ref={pop} className="sel-pop th-pop" style={{ left: pos.left, top: pos.top, width: 240 }}>

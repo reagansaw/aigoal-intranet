@@ -72,6 +72,7 @@ export default function Customers() {
   const [ask, setAsk] = useState<{ row: Customer; status: string; remark: string; demoBy: string; demoDate: string; demoTime: string; inviteDate: string; product: string; closeDate: string } | null>(null)
   const [toast, setToast] = useState('')
   const [demos, setDemos] = useState<DemoBooking[]>([])
+  const [fu, setFu] = useState<Map<string, { n: number; last: string; by: string }>>(new Map())   // follow-up history per lead
   const [edit, setEdit] = useState<Partial<Customer> | null>(null)
   const [tab, setTab] = useState<'details' | 'followup' | 'history'>('details')
   const [err, setErr] = useState('')
@@ -85,6 +86,10 @@ export default function Customers() {
     }
     // Staff see a webinar's leads from the day after it has taken place (21 Oct shows from 22 Oct); Admin sees every webinar, upcoming ones marked
     setRows(isAdmin ? all : all.filter((r) => !r.batch_date || r.batch_date < today()))
+    const { data: nt } = await supabase.from('customer_notes').select('customer_id, created_at, author_name').order('created_at', { ascending: false }).limit(20000)
+    const m = new Map<string, { n: number; last: string; by: string }>()
+    ;(nt ?? []).forEach((x: any) => { const e = m.get(x.customer_id); if (e) e.n++; else m.set(x.customer_id, { n: 1, last: x.created_at, by: x.author_name }) })
+    setFu(m)
     const { data: d } = await supabase.from('demo_bookings').select('*').order('start_at', { ascending: false })
     setDemos((d ?? []) as DemoBooking[])
   }
@@ -100,7 +105,8 @@ export default function Customers() {
   // header filters (tick lists); several can be on at once
   const [cf, setCf] = useState<Record<string, string[]>>({})
   const setCol = (k: string) => (v: string[]) => setCf((p) => ({ ...p, [k]: v }))
-  const callOf = (r: Customer) => (r.called ? 'called' : r.not_available ? 'na' : 'none')
+  const before = (r: Customer) => r.called || fu.has(r.id)   // called, or follow-ups already written (including the old sheets)
+  const callOf = (r: Customer) => (before(r) ? 'called' : r.not_available ? 'na' : 'none')
   const colOk = (r: Customer) =>
     (!cf.priority?.length || cf.priority.includes(r.priority)) && (!cf.industry?.length || cf.industry.includes(r.industry || '—')) &&
     (!cf.sales?.length || cf.sales.includes(ownerOf(r) || '—')) && (!cf.webinar?.length || cf.webinar.includes(r.batch || '—')) &&
@@ -231,7 +237,7 @@ export default function Customers() {
       {activeCols > 0 && <div className="row sm-text" style={{ gap: '.6rem', margin: '0 0 .5rem' }}><span className="muted">{activeCols} column filter{activeCols > 1 ? 's' : ''} on · {shown.length} shown</span><button type="button" className="ghost sm" onClick={() => setCf({})}>Clear column filters</button></div>}
       <div className="card flush table-wrap">
         <table>
-          <thead><tr>{isAdmin && <th style={{ width: 40 }}><input type="checkbox" aria-label="Select this page" checked={pageRows.length > 0 && pageRows.every((r) => sel.includes(r.id))} onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...pageRows.map((r) => r.id)])] : sel.filter((id) => !pageRows.some((r) => r.id === id)))} style={{ width: 'auto' }} /></th>}<th><ColumnFilter label="Priority" options={opts((r) => r.priority)} selected={cf.priority ?? []} onChange={setCol('priority')} /></th><th>Name</th><th>Phone</th><th><ColumnFilter label="Industry" options={opts((r) => r.industry || '—')} selected={cf.industry ?? []} onChange={setCol('industry')} /></th>{viewAll && <th><ColumnFilter label="Sales" options={opts((r) => ownerOf(r) || '—', (v) => (v === '—' ? 'Unassigned' : v))} selected={cf.sales ?? []} onChange={setCol('sales')} /></th>}<th><ColumnFilter label="Webinar" options={opts((r) => r.batch || '—', undefined, batches.map((x) => x.label))} selected={cf.webinar ?? []} onChange={setCol('webinar')} /></th><th><ColumnFilter label="Call" options={opts(callOf, (v) => ({ called: 'Called', na: 'Not available', none: 'Not called yet' } as Record<string, string>)[v], ['called', 'na', 'none'])} selected={cf.call ?? []} onChange={setCol('call')} /></th><th style={{ minWidth: 200 }}><ColumnFilter label="Status" options={opts((r) => r.lead_status || 'none', (v) => (v === 'none' ? 'No status' : statusOf(v)?.label ?? v), ['none', ...LEAD_STATUS.map((x) => x.value)])} selected={cf.status ?? []} onChange={setCol('status')} /></th><th className="sticky-end" style={{ width: 52 }}></th></tr></thead>
+          <thead><tr>{isAdmin && <th style={{ width: 40 }}><input type="checkbox" aria-label="Select this page" checked={pageRows.length > 0 && pageRows.every((r) => sel.includes(r.id))} onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...pageRows.map((r) => r.id)])] : sel.filter((id) => !pageRows.some((r) => r.id === id)))} style={{ width: 'auto' }} /></th>}<th><ColumnFilter label="Priority" options={opts((r) => r.priority)} selected={cf.priority ?? []} onChange={setCol('priority')} /></th><th>Name</th><th>Phone</th><th><ColumnFilter label="Industry" options={opts((r) => r.industry || '—')} selected={cf.industry ?? []} onChange={setCol('industry')} /></th>{viewAll && <th><ColumnFilter label="Sales" options={opts((r) => ownerOf(r) || '—', (v) => (v === '—' ? 'Unassigned' : v))} selected={cf.sales ?? []} onChange={setCol('sales')} /></th>}<th><ColumnFilter label="Webinar" options={opts((r) => r.batch || '—', undefined, batches.map((x) => x.label))} selected={cf.webinar ?? []} onChange={setCol('webinar')} /></th><th><ColumnFilter label="Call" options={opts(callOf, (v) => ({ called: 'Called before', na: 'Not available', none: 'Not called yet' } as Record<string, string>)[v], ['called', 'na', 'none'])} selected={cf.call ?? []} onChange={setCol('call')} /></th><th style={{ minWidth: 200 }}><ColumnFilter label="Status" options={opts((r) => r.lead_status || 'none', (v) => (v === 'none' ? 'No status' : statusOf(v)?.label ?? v), ['none', ...LEAD_STATUS.map((x) => x.value)])} selected={cf.status ?? []} onChange={setCol('status')} /></th><th className="sticky-end" style={{ width: 52 }}></th></tr></thead>
           <tbody>
             {pageRows.map((r) => {
               const st = statusOf(r.lead_status)
@@ -242,7 +248,10 @@ export default function Customers() {
                   <td><span className="cell-title">{r.name}</span> {isBought(r) && <span className="tag good"><BadgeCheck size={12} />Purchased</span>} {r.prospect && <Star size={14} className="i" style={{ color: '#eab308' }} />}</td>
                   <td>{r.phone && <a href={waLink(r.phone)!} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}</td>
                   <td>{r.industry}</td>{viewAll && <td>{ownerOf(r) || <span className="muted">—</span>}</td>}<td>{r.batch}{isAdmin && r.batch_date && r.batch_date >= today() && <span className="tag brand" style={{ marginLeft: 6 }} title="Staff cannot see this webinar until the day after it">Upcoming</span>}</td>
-                  <td>{r.called ? <PhoneCall size={16} className="i" style={{ color: 'var(--ok)' }} /> : r.not_available ? <PhoneOff size={16} className="i" style={{ color: 'var(--muted)' }} /> : null}</td>
+                  <td>
+                    {before(r) && <span className="tag good" style={{ width: 'fit-content' }} title={fu.get(r.id) ? `${fu.get(r.id)!.n} follow-up${fu.get(r.id)!.n > 1 ? 's' : ''} · last by ${fu.get(r.id)!.by} ${ago(fu.get(r.id)!.last)}` : 'Marked as called'}><PhoneCall size={12} />Called before</span>}
+                    {r.not_available && <span className="tag" style={{ width: 'fit-content', marginTop: before(r) ? 3 : 0 }}><PhoneOff size={12} />Not available</span>}
+                  </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <Select value={r.lead_status ?? ''} disabled={!canEditRow(r)} onChange={(v) => changeStatus(r, v)} placeholder="Set status" options={STATUS_OPTS} />
                     {r.lead_status && NEEDS_REASON.includes(r.lead_status) && r.status_remark && <div className="muted sm-text clamp2" style={{ maxWidth: 230, marginTop: 3 }} title={r.status_remark}>{r.status_remark}</div>}
@@ -359,7 +368,7 @@ export default function Customers() {
                     {txt('not_interested_reason', 'Not interested: reason')}{txt('result', 'Follow-up result')}
                   </div>
                 </div>
-                {edit.id && <AccountNotes accountId={edit.id} table="customer_notes" fk="customer_id" kinds={['followup', 'call', 'remark']} readOnly={viewOnly} />}
+                {edit.id && <AccountNotes accountId={edit.id} table="customer_notes" fk="customer_id" kinds={["followup", "call", "remark"]} readOnly={viewOnly} onChange={load} />}
                 {!edit.id && <p className="muted sm-text">Save the customer first, then add follow-ups here.</p>}
               </>
             )}
