@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertCircle, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, EyeOff, Search, X, type LucideIcon } from 'lucide-react'
+import { AlertCircle, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, EyeOff, Funnel, Search, X, type LucideIcon } from 'lucide-react'
 
 export function PageHeader({ title, sub, children }: { title: string; sub?: ReactNode; children?: ReactNode }) {
   return (
@@ -311,5 +311,49 @@ export function PasswordInput({ value, onChange, placeholder, autoComplete, auto
       <input type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoComplete={autoComplete} autoFocus={autoFocus} required={required} />
       <button type="button" className="pw-eye" aria-label={show ? 'Hide password' : 'Show password'} onClick={() => setShow(!show)}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
     </div>
+  )
+}
+
+/** Excel-style filter for a table column: a small funnel in the header that opens a tick list. */
+export function ColumnFilter({ label, options, selected, onChange }: { label: string; options: { value: string; label: string; count?: number }[]; selected: string[]; onChange: (v: string[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [pos, setPos] = useState({ left: 0, top: 0 })
+  const btn = useRef<HTMLButtonElement>(null)
+  const pop = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const down = (e: MouseEvent) => { const t = e.target as Node; if (!pop.current?.contains(t) && !btn.current?.contains(t)) setOpen(false) }
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const move = (e: Event) => { if (!pop.current?.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', down); document.addEventListener('keydown', esc); window.addEventListener('scroll', move, true); window.addEventListener('resize', move)
+    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', esc); window.removeEventListener('scroll', move, true); window.removeEventListener('resize', move) }
+  }, [open])
+  const show = () => { const r = btn.current!.getBoundingClientRect(); setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - 248)), top: r.bottom + 6 }); setQ(''); setOpen(true) }
+  const list = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options
+  const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v])
+  return (
+    <span className="th-filter">
+      <span>{label}</span>
+      <button type="button" ref={btn} className={'th-fbtn' + (selected.length ? ' on' : '')} aria-label={`Filter ${label}`} title={`Filter ${label}`} onClick={(e) => { e.stopPropagation(); open ? setOpen(false) : show() }}>
+        <Funnel size={13} />{selected.length > 0 && <b>{selected.length}</b>}
+      </button>
+      {open && createPortal(
+        <div ref={pop} className="sel-pop th-pop" style={{ left: pos.left, top: pos.top, width: 240 }}>
+          {options.length > 7 && <div className="sel-search"><Search size={14} /><input autoFocus placeholder={`Search ${label.toLowerCase()}…`} value={q} onChange={(e) => setQ(e.target.value)} /></div>}
+          <div className="sel-list">
+            {list.map((o) => (
+              <label key={o.value} className="sel-opt th-opt">
+                <input type="checkbox" checked={selected.includes(o.value)} onChange={() => toggle(o.value)} style={{ width: 'auto' }} />
+                <span className="sel-label">{o.label}</span>{o.count != null && <span className="sel-hint">{o.count}</span>}
+              </label>
+            ))}
+            {!list.length && <div className="sel-opt muted">No matches</div>}
+          </div>
+          <div className="th-foot"><button type="button" className="ghost sm" disabled={!selected.length} onClick={() => onChange([])}>Clear</button><button type="button" className="sm" onClick={() => setOpen(false)}>Done</button></div>
+        </div>,
+        document.body,
+      )}
+    </span>
   )
 }

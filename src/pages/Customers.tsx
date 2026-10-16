@@ -15,7 +15,7 @@ import Modal from '../components/Modal'
 import CsvImport from '../components/CsvImport'
 import AuditTrail from '../components/AuditTrail'
 import AccountNotes from '../components/AccountNotes'
-import { Alert, DatePicker, Empty, Msg, PageHeader, Pagination, PriorityBadge, SearchBox, Select, Stat, usePaged } from '../components/ui'
+import { Alert, ColumnFilter, DatePicker, Empty, Msg, PageHeader, Pagination, PriorityBadge, SearchBox, Select, Stat, usePaged } from '../components/ui'
 import { applyOwner, ownerOptions, ownerValue } from '../lib/owners'
 import type { Customer, DemoBooking } from '../lib/types'
 
@@ -97,7 +97,21 @@ export default function Customers() {
     return [...m.values()].sort((a, b) => a.date.localeCompare(b.date))
   }, [rows])
   const owners = useMemo(() => [...new Set(rows.map(ownerOf).filter(Boolean))].sort(), [rows, staff])
-  const shown = rows.filter((r) =>
+  // header filters (tick lists); several can be on at once
+  const [cf, setCf] = useState<Record<string, string[]>>({})
+  const setCol = (k: string) => (v: string[]) => setCf((p) => ({ ...p, [k]: v }))
+  const callOf = (r: Customer) => (r.called ? 'called' : r.not_available ? 'na' : 'none')
+  const colOk = (r: Customer) =>
+    (!cf.priority?.length || cf.priority.includes(r.priority)) && (!cf.industry?.length || cf.industry.includes(r.industry || '—')) &&
+    (!cf.sales?.length || cf.sales.includes(ownerOf(r) || '—')) && (!cf.webinar?.length || cf.webinar.includes(r.batch || '—')) &&
+    (!cf.call?.length || cf.call.includes(callOf(r))) && (!cf.status?.length || cf.status.includes(r.lead_status || 'none'))
+  const colCount = (get: (r: Customer) => string) => { const m = new Map<string, number>(); rows.forEach((r) => m.set(get(r), (m.get(get(r)) ?? 0) + 1)); return m }
+  const opts = (get: (r: Customer) => string, label?: (v: string) => string, order?: string[]) => {
+    const m = colCount(get); const keys = order ? order.filter((k) => m.has(k)) : [...m.keys()].sort((a, b) => (m.get(b)! - m.get(a)!) || a.localeCompare(b))
+    return keys.map((k) => ({ value: k, label: label ? label(k) : k, count: m.get(k) }))
+  }
+  const activeCols = Object.values(cf).reduce((n, v) => n + (v.length ? 1 : 0), 0)
+  const shown = rows.filter((r) => colOk(r) &&
     (pri === 'all' || r.priority === pri) && (statusF === 'all' || (statusF === 'none' ? !r.lead_status : r.lead_status === statusF)) && (buy === 'all' || (buy === 'yes') === isBought(r)) && (batch === 'all' || r.batch === batch) &&
     (owner === 'all' || (owner === 'none' ? !ownerOf(r) : ownerOf(r) === owner)) &&
     (!q || [r.name, r.phone, r.email, r.industry].join(' ').toLowerCase().includes(q.toLowerCase())))
@@ -110,7 +124,7 @@ export default function Customers() {
   const demoWhen = (d: DemoBooking) => new Date(d.start_at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' })
   const ownerOpts = ownerOptions(staff.filter((x) => x.is_sales || x.role === 'admin'), owners)
   const ownerVal = ownerValue(edit ?? {})
-  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, pri, batch, owner, buy, statusF]))
+  const { rows: pageRows, pager } = usePaged(shown, JSON.stringify([q, pri, batch, owner, buy, statusF, cf]))
 
   // ───── status changes (inline in the table) ─────
   const changeStatus = async (row: Customer, v: string) => {
@@ -214,9 +228,10 @@ export default function Customers() {
           <button className="sm" onClick={() => setSel([])}>Clear</button>
         </div>
       )}
+      {activeCols > 0 && <div className="row sm-text" style={{ gap: '.6rem', margin: '0 0 .5rem' }}><span className="muted">{activeCols} column filter{activeCols > 1 ? 's' : ''} on · {shown.length} shown</span><button type="button" className="ghost sm" onClick={() => setCf({})}>Clear column filters</button></div>}
       <div className="card flush table-wrap">
         <table>
-          <thead><tr>{isAdmin && <th style={{ width: 40 }}><input type="checkbox" aria-label="Select this page" checked={pageRows.length > 0 && pageRows.every((r) => sel.includes(r.id))} onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...pageRows.map((r) => r.id)])] : sel.filter((id) => !pageRows.some((r) => r.id === id)))} style={{ width: 'auto' }} /></th>}<th>Priority</th><th>Name</th><th>Phone</th><th>Industry</th>{viewAll && <th>Sales</th>}<th>Webinar</th><th>Call</th><th style={{ minWidth: 200 }}>Status</th><th className="sticky-end" style={{ width: 52 }}></th></tr></thead>
+          <thead><tr>{isAdmin && <th style={{ width: 40 }}><input type="checkbox" aria-label="Select this page" checked={pageRows.length > 0 && pageRows.every((r) => sel.includes(r.id))} onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...pageRows.map((r) => r.id)])] : sel.filter((id) => !pageRows.some((r) => r.id === id)))} style={{ width: 'auto' }} /></th>}<th><ColumnFilter label="Priority" options={opts((r) => r.priority)} selected={cf.priority ?? []} onChange={setCol('priority')} /></th><th>Name</th><th>Phone</th><th><ColumnFilter label="Industry" options={opts((r) => r.industry || '—')} selected={cf.industry ?? []} onChange={setCol('industry')} /></th>{viewAll && <th><ColumnFilter label="Sales" options={opts((r) => ownerOf(r) || '—', (v) => (v === '—' ? 'Unassigned' : v))} selected={cf.sales ?? []} onChange={setCol('sales')} /></th>}<th><ColumnFilter label="Webinar" options={opts((r) => r.batch || '—', undefined, batches.map((x) => x.label))} selected={cf.webinar ?? []} onChange={setCol('webinar')} /></th><th><ColumnFilter label="Call" options={opts(callOf, (v) => ({ called: 'Called', na: 'Not available', none: 'Not called yet' } as Record<string, string>)[v], ['called', 'na', 'none'])} selected={cf.call ?? []} onChange={setCol('call')} /></th><th style={{ minWidth: 200 }}><ColumnFilter label="Status" options={opts((r) => r.lead_status || 'none', (v) => (v === 'none' ? 'No status' : statusOf(v)?.label ?? v), ['none', ...LEAD_STATUS.map((x) => x.value)])} selected={cf.status ?? []} onChange={setCol('status')} /></th><th className="sticky-end" style={{ width: 52 }}></th></tr></thead>
           <tbody>
             {pageRows.map((r) => {
               const st = statusOf(r.lead_status)
