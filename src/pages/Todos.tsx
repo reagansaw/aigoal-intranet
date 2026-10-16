@@ -120,14 +120,15 @@ export default function Todos() {
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+        <Stat icon={ListTodo} label="Total to-do" value={marks.total} />
         <Stat icon={ListChecks} tone="green" label="Done" value={marks.done} />
         <Stat icon={TriangleAlert} tone="red" label="Not done" value={marks.missed} />
         <Stat icon={CalendarDays} tone="gray" label="Still open" value={marks.open} />
-        <Stat icon={ListTodo} label="Score" value={marks.score == null ? '—' : `${marks.score}%`} />
+        <Stat icon={CalendarDays} tone="yellow" label={`Mark · ${marks.done}/${marks.total}`} value={marks.score == null ? '—' : `${marks.score}%`} />
       </div>
       <p className="muted sm-text" style={{ margin: '-.2rem 0 1rem' }}>
         <b>Not done</b> = past its due date without a tick. A task created and due on the same day must be ticked by the end of that day; if not, it counts as not done even if ticked later.
-        Score = done out of done + not done.
+        Mark = done ÷ total to-do (10 to-do with 5 done = 5/10 = 50%).
       </p>
 
       {layout === 'board' && <TodoBoard cards={[...inbox, ...todos]} uid={uid} month={month} fallbackDay={day} onChange={load} />}

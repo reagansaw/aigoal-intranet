@@ -28,6 +28,6 @@ export const isLate = (t: Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_
 export function tally(list: Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at'>[]) {
   let done = 0, missed = 0, open = 0
   list.forEach((t) => { const o = outcomeOf(t); if (o === 'done') done++; else if (o === 'missed') missed++; else open++ })
-  const closed = done + missed
-  return { done, missed, open, total: list.length, score: closed ? Math.round((done / closed) * 100) : null as number | null }
+  // mark = done out of ALL the to-dos in the period (5 done of 10 = 50%)
+  return { done, missed, open, total: list.length, score: list.length ? Math.round((done / list.length) * 100) : null as number | null }
 }

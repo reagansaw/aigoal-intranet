@@ -5,7 +5,8 @@ import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { loadUserPayouts } from '../lib/kpiLoad'
 import { buildPipeline, dayTime } from '../lib/pipeline'
-import { dayLabel, money, monthLabel, monthStart, today } from '../lib/util'
+import { addDays, addMonths, dayLabel, money, monthLabel, monthStart, today } from '../lib/util'
+import { outcomeOf, tally, weekStart } from '../lib/todo'
 import TodayTodo from '../components/TodayTodo'
 import LeadPipeline from '../components/LeadPipeline'
 import AigoalToken from '../components/AigoalToken'
@@ -81,20 +82,29 @@ const hello = () => { const h = Number(new Date().toLocaleString('en-GB', { hour
 /** Admin: one card per person (Admin accounts left out), tick who to show. */
 function TeamStatus({ team, hidden, setHidden }: { team: StaffRow[]; hidden: string[]; setHidden: (v: string[]) => void }) {
   const shown = team.filter((s) => !hidden.includes(s.id))
-  // last 7 days of to-dos for the little graph on each card
-  const [week, setWeek] = useState<Record<string, { done: number; total: number }[]>>({})
+  // everyone's to-dos around today: used for the Day / Week / Month marks and the 7-day graph on each card
+  const [range, setRange] = useState<'day' | 'week' | 'month'>('day')
+  const [all, setAll] = useState<Record<string, Pick<Todo, 'due_date' | 'done' | 'created_at' | 'done_at'>[]>>({})
   useEffect(() => {
-    const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - 6 + i); return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }) })
-    supabase.from('todos').select('user_id, due_date, done').gte('due_date', days[0]).lte('due_date', days[6]).limit(5000).then(({ data }) => {
-      const m: Record<string, { done: number; total: number }[]> = {}
-      ;(data ?? []).forEach((t: any) => { const i = days.indexOf(t.due_date); if (i < 0) return; const a = (m[t.user_id] ||= days.map(() => ({ done: 0, total: 0 }))); a[i].total++; if (t.done) a[i].done++ })
-      setWeek(m)
+    const t = today()
+    supabase.from('todos').select('user_id, due_date, done, created_at, done_at').gte('due_date', addDays(t, -45)).lte('due_date', addDays(t, 45)).limit(10000).then(({ data }) => {
+      const m: Record<string, Pick<Todo, 'due_date' | 'done' | 'created_at' | 'done_at'>[]> = {}
+      ;(data ?? []).forEach((x: any) => (m[x.user_id] ||= []).push(x))
+      setAll(m)
     })
   }, [])
+  const t0 = today()
+  const [rf, rt] = range === 'day' ? [t0, t0] : range === 'week' ? [weekStart(t0), addDays(weekStart(t0), 6)] : [monthStart(new Date(t0 + 'T12:00:00')), addDays(addMonths(monthStart(new Date(t0 + 'T12:00:00')), 1), -1)]
+  const days7 = Array.from({ length: 7 }, (_, i) => addDays(t0, i - 6))
+  const week: Record<string, { done: number; total: number }[]> = {}
+  Object.entries(all).forEach(([uid, list]) => { week[uid] = days7.map((d) => { const l = list.filter((x) => x.due_date === d); return { done: l.filter((x) => outcomeOf(x) === 'done').length, total: l.length } }) })
   return (
     <div className="card">
       <div className="card-head">
         <h2><Users size={17} className="i" />Team status</h2>
+        <div className="tabs" style={{ margin: 0 }} role="tablist" aria-label="Marks period">
+          {(['day', 'week', 'month'] as const).map((r) => <button key={r} className={range === r ? 'on' : ''} onClick={() => setRange(r)}>{r === 'day' ? 'Day' : r === 'week' ? 'Week' : 'Month'}</button>)}
+        </div>
         <div className="chips">
           {team.map((s) => { const on = !hidden.includes(s.id); return (
             <button key={s.id} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} title={on ? 'Click to hide' : 'Click to show'} onClick={() => setHidden(on ? [...hidden, s.id] : hidden.filter((x) => x !== s.id))}>{on && <Check size={13} />}{(s.name || '').split(' ')[0]}</button>
@@ -113,15 +123,18 @@ function TeamStatus({ team, hidden, setHidden }: { team: StaffRow[]; hidden: str
                 <div style={{ minWidth: 0, flex: 1 }}><div className="cell-title">{s.name}</div><div className="muted sm-text">{s.title || s.role}</div></div>
                 {s.must_change_password ? <span className="tag">Not signed in yet</span> : s.away_today === 'leave' ? <span className="tag warn">On leave</span> : s.away_today === 'travel' ? <span className="tag brand">Travelling</span> : <span className={'sm-text ' + (online ? 'ok' : 'muted')}>{online ? 'Online' : ago(s.last_seen_at)}</span>}
               </div>
-              <div className="team-block">
-                <div className="team-label"><span>To-do today</span><b>{s.todos_done}/{s.todos_today}</b></div>
-                <div className="bar"><i style={{ width: `${pct}%` }} /></div>
-                {(s.todos_overdue > 0 || s.todos_unscheduled > 0 || s.meeting_overdue > 0) && <div className="row" style={{ gap: '.3rem', marginTop: '.4rem' }}>
-                  {s.todos_overdue > 0 && <span className="tag warn">{s.todos_overdue} overdue</span>}
-                  {s.todos_unscheduled > 0 && <span className="tag">{s.todos_unscheduled} to schedule</span>}
-                  {s.meeting_overdue > 0 && <span className="tag warn">{s.meeting_overdue} meeting actions late</span>}
-                </div>}
-              </div>
+              {(() => { const mk = tally((all[s.id] ?? []).filter((x) => x.due_date && x.due_date >= rf && x.due_date <= rt)); return (
+                <div className="team-block">
+                  <div className="team-label"><span>Marks · {range === 'day' ? 'today' : range === 'week' ? 'this week' : 'this month'}</span><b>{mk.total ? `${mk.done}/${mk.total} = ${mk.score}%` : 'No to-do'}</b></div>
+                  <div className="bar"><i style={{ width: `${mk.score ?? 0}%` }} /></div>
+                  <div className="row" style={{ gap: '.3rem', marginTop: '.4rem' }}>
+                    {mk.total > 0 && <span className="tag good">{mk.done} done</span>}
+                    {mk.missed > 0 && <span className="tag warn">{mk.missed} not done</span>}
+                    {mk.open > 0 && <span className="tag">{mk.open} open</span>}
+                    {s.todos_unscheduled > 0 && <span className="tag">{s.todos_unscheduled} to schedule</span>}
+                    {s.meeting_overdue > 0 && <span className="tag warn">{s.meeting_overdue} meeting actions late</span>}
+                  </div>
+                </div>) })()}
               {(() => { const w = week[s.id]; const tot = w?.reduce((a, d) => a + d.total, 0) ?? 0; const dn = w?.reduce((a, d) => a + d.done, 0) ?? 0; return (
                 <div className="team-block">
                   <div className="team-label"><span>Last 7 days</span><b>{tot ? `${dn}/${tot} done · ${Math.round((dn / tot) * 100)}%` : 'No tasks'}</b></div>
