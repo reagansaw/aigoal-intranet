@@ -68,20 +68,21 @@ export function Select({ value, onChange, options, placeholder = 'Select…', bl
   const withSearch = searchable ?? options.length > 8
   const list = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options
 
-  const show = () => {
+  const place = () => {
     const r = btn.current!.getBoundingClientRect()
     const below = window.innerHeight - r.bottom
     setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - 248)), top: r.bottom + 6, bottom: window.innerHeight - r.top + 6, width: Math.max(r.width, 210), up: below < 300 && r.top > below })
-    setQ(''); setHi(options.findIndex((o) => o.value === value)); setOpen(true)
   }
+  const show = () => { place(); setQ(''); setHi(options.findIndex((o) => o.value === value)); setOpen(true) }
   const pick = (v: string) => { onChange(v); setOpen(false); btn.current?.focus() }
 
   useEffect(() => {
     if (!open) return
     const down = (e: MouseEvent) => { const t = e.target as Node; if (!pop.current?.contains(t) && !btn.current?.contains(t)) setOpen(false) }
-    const close = (e: Event) => { if (!pop.current?.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', down); window.addEventListener('scroll', close, true); window.addEventListener('resize', close)
-    return () => { document.removeEventListener('mousedown', down); window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close) }
+    // scrolling / resizing keeps the list open and follows the button (closing here made dropdowns inside long forms impossible to use)
+    const follow = (e: Event) => { if (pop.current?.contains(e.target as Node)) return; if (btn.current) place() }
+    document.addEventListener('mousedown', down); window.addEventListener('scroll', follow, true); window.addEventListener('resize', follow)
+    return () => { document.removeEventListener('mousedown', down); window.removeEventListener('scroll', follow, true); window.removeEventListener('resize', follow) }
   }, [open])
   useEffect(() => { if (open && hi >= 0) pop.current?.querySelector<HTMLElement>(`[data-i="${hi}"]`)?.scrollIntoView({ block: 'nearest' }) }, [hi, open])
   useEffect(() => { if (open && withSearch) setTimeout(() => pop.current?.querySelector('input')?.focus(), 0) }, [open, withSearch])
