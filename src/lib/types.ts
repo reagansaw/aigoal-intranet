@@ -29,6 +29,8 @@ export interface Todo {
   priority: 'low' | 'normal' | 'high'
   done: boolean
   status: 'todo' | 'doing' | 'done'
+  created_at: string
+  done_at: string | null
   deadline: string | null
   source: string | null
   meeting_task_id: string | null

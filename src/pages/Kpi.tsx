@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
 import { calcPayout } from '../lib/kpi'
 import { loadUserPayouts, type UserPayout } from '../lib/kpiLoad'
+import { outcomeOf } from '../lib/todo'
 import { addMonths, iso, money, monthLabel, monthStart, today } from '../lib/util'
 import { DatePicker, Empty, Msg, NumberInput, PageHeader, Select, Stat } from '../components/ui'
 import type { KpiChecklistRow, KpiItem, KpiOrder, KpiReview, KpiScore, KpiTemplate, KpiWeekly } from '../lib/types'
@@ -43,7 +44,7 @@ export default function Kpi() {
   const [checklist, setChecklist] = useState<KpiChecklistRow[]>([])
   const [orders, setOrders] = useState<KpiOrder[]>([])
   const [tplId, setTplId] = useState('')
-  const [todos, setTodos] = useState<{ title: string; due_date: string; done: boolean }[]>([])
+  const [todos, setTodos] = useState<{ title: string; due_date: string; done: boolean; created_at: string; done_at: string | null }[]>([])
   const [msg, setMsg] = useState('')
   const [history, setHistory] = useState<UserPayout[]>([])
 
@@ -77,8 +78,8 @@ export default function Kpi() {
   const loadTodos = async () => {
     const d = new Date(month + 'T00:00:00')
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toLocaleDateString('en-CA')
-    const { data } = await supabase.from('todos').select('title, due_date, done').eq('user_id', uid).gte('due_date', month).lte('due_date', end).limit(2000)
-    setTodos((data ?? []) as { title: string; due_date: string; done: boolean }[])
+    const { data } = await supabase.from('todos').select('title, due_date, done, created_at, done_at').eq('user_id', uid).gte('due_date', month).lte('due_date', end).limit(2000)
+    setTodos((data ?? []) as { title: string; due_date: string; done: boolean; created_at: string; done_at: string | null }[])
   }
   useEffect(() => { loadTodos() }, [uid, month])
   // Daily Task grid is built from the To-Do list: one row per task title, ticked on the days it was completed
@@ -88,7 +89,7 @@ export default function Kpi() {
       const key = t.title.trim().toLowerCase(); if (!key) return
       const row = m.get(key) ?? { label: t.title.trim(), days: [] }
       const day = Number(t.due_date.slice(8, 10)) - 1
-      row.days[day] = !!row.days[day] || t.done
+      row.days[day] = !!row.days[day] || outcomeOf(t) === 'done'
       m.set(key, row)
     })
     return [...m.values()].sort((a, b) => b.days.filter(Boolean).length - a.days.filter(Boolean).length || a.label.localeCompare(b.label))
