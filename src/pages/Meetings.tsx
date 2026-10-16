@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarCheck, CheckCircle2, ListPlus, NotebookPen, Pencil, Plus, Save, Trash2, Users, X } from 'lucide-react'
+import { Lock, CalendarCheck, CheckCircle2, ListPlus, NotebookPen, Pencil, Plus, Save, Trash2, Users, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
@@ -139,7 +139,7 @@ export default function Meetings() {
           <div className="form-grid">
             <div className="field"><label>Meeting title</label><input disabled={!canEdit} value={draft.meeting.title ?? ''} onChange={(e) => setM('title', e.target.value)} placeholder="e.g. Weekly sales sync" /></div>
             <div className="field"><label>Date</label><DatePicker value={draft.meeting.meeting_date} clearable={false} disabled={!canEdit} onChange={(v) => setM('meeting_date', v)} /></div>
-            <div className="field"><label>Minutes written by (谁负责做总结)</label><Select block disabled={!canEdit} value={draft.meeting.minute_taker_id ?? ''} onChange={(v) => setM('minute_taker_id', v)} options={staffOpts} /></div>
+            <div className="field"><label>Minutes written by (谁负责做总结){!isAdmin && <Lock size={11} className="i" style={{ marginLeft: 4 }} />}</label><Select block disabled={!canEdit || !isAdmin} value={draft.meeting.minute_taker_id ?? ''} onChange={(v) => setM('minute_taker_id', v)} options={staffOpts} /></div>
           </div>
           <div className="field"><label><Users size={13} className="i" /> Attendees</label>
             <div className="chips">{staff.map((s) => <button key={s.id} type="button" disabled={!canEdit} className={'chip' + (draft.meeting.attendee_ids?.includes(s.id) ? ' on' : '')} onClick={() => toggleAttendee(s.id)}>{s.full_name || s.email}</button>)}</div>
