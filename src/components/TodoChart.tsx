@@ -1,14 +1,19 @@
+import { useEffect, useRef, useState } from 'react'
 import { dayLabel } from '../lib/util'
 
 export interface DayCount { day: string; done: number; total: number }
 
 /** Done vs still-to-do per day, with a summary row. Inline SVG, follows the theme. */
 export default function TodoChart({ data, selected, title }: { data: DayCount[]; selected?: string; title: string }) {
+  // Draw at the real width of the card so text and bars keep a true size (no stretching on wide screens)
+  const box = useRef<HTMLDivElement>(null)
+  const [cw, setCw] = useState(560)
+  useEffect(() => { const el = box.current; if (!el) return; const ro = new ResizeObserver(() => setCw(Math.round(el.clientWidth))); ro.observe(el); setCw(Math.round(el.clientWidth)); return () => ro.disconnect() }, [])
   const max = Math.max(4, ...data.map((d) => d.total))
   const n = data.length
-  const W = Math.max(340, n * 36), H = 196, L = 28, B = 26, T = 30
+  const W = Math.max(cw, n * 30), H = 190, L = 28, B = 26, T = 28
   const slot = (W - L) / n
-  const bw = Math.min(26, slot * 0.6)
+  const bw = Math.min(30, slot * 0.55)
   const x = (i: number) => L + slot * (i + 0.5)
   const y = (v: number) => T + (H - T - B) * (1 - v / max)
   const ticks = [...new Set([0, Math.ceil(max / 2), max])]
@@ -29,8 +34,8 @@ export default function TodoChart({ data, selected, title }: { data: DayCount[];
       <div className="chart-tiles">
         {tiles.map((t) => <div key={t.label}><small>{t.label}</small><b style={{ color: t.tone }}>{t.value}</b></div>)}
       </div>
-      <div className="chart-scroll">
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: Math.min(W, 560), height: 'auto', display: 'block' }} role="img" aria-label={title}>
+      <div className="chart-scroll" ref={box}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }} role="img" aria-label={title}>
           <defs>
             <linearGradient id="gDone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--ok)" /><stop offset="1" stopColor="var(--ok)" stopOpacity=".72" /></linearGradient>
             <linearGradient id="gLeft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--warn)" stopOpacity=".5" /><stop offset="1" stopColor="var(--warn)" stopOpacity=".28" /></linearGradient>
