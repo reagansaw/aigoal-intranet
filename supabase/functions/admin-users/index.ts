@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
   const body = await req.json()
 
   if (body.action === 'create') {
-    const role = me.role === 'admin' ? body.role ?? 'staff' : 'staff' // HR can only add staff
+    const role = me.role === 'admin' && ['admin', 'hr', 'staff', 'manager', 'external'].includes(body.role) ? body.role : 'staff' // HR can only add staff
     if (!body.email || !body.password || body.password.length < 8) {
       return json({ error: 'Email and a password of at least 8 characters are required' }, 400)
     }

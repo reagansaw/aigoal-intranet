@@ -102,7 +102,7 @@ export default function TodoBoard({ cards, uid, month, fallbackDay, onChange }: 
           {edit.source && <p className="muted sm-text">From: {edit.source}</p>}
           {edit.delayed_days > 0 && <p className="sm-text"><DelayTag t={edit} /> {edit.delay_log?.map((l, i) => <span key={i} className="muted"> · {dayLabel(l.from)} → {dayLabel(l.to)}</span>)}</p>}
           {err && <Alert text={err} />}
-          <div className="modal-foot"><button className="primary" onClick={save}><Save size={16} />{isNew ? 'Add card' : 'Save'}</button>{!isNew && <button className="danger" onClick={del}><Trash2 size={16} />Delete</button>}</div>
+          <div className="modal-foot"><button className="primary" onClick={save}><Save size={16} />{isNew ? 'Add card' : 'Save'}</button>{!isNew && !(edit.delayed_days > 0 || outcomeOf(edit) === 'missed') && <button className="danger" onClick={del}><Trash2 size={16} />Delete</button>}</div>
         </Modal>
       )}
     </>

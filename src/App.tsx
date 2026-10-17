@@ -18,7 +18,7 @@ import Meetings from './pages/Meetings'
 import Calendar from './pages/Calendar'
 
 export default function App() {
-  const { session, profile, loading, isAdmin, isHr, isManager, signOut } = useAuth()
+  const { session, profile, loading, isAdmin, isHr, isManager, isExternal, signOut } = useAuth()
   if (loading) return <div className="center muted">Loading…</div>
   if (!session) return <Login />
   if (!profile || !profile.active)
@@ -40,13 +40,13 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="profile" element={<Profile />} />
-        <Route path="todos" element={<Todos />} />
+        {!isExternal && <Route path="todos" element={<Todos />} />}
         {isManager && <Route path="kpi" element={<Kpi />} />}
         {(isAdmin || isHr) && <Route path="calendar" element={<Calendar />} />}
         {isManager && <Route path="meetings" element={<Meetings />} />}
         <Route path="accounts" element={<Accounts />} />
         <Route path="customers" element={<Customers />} />
-        <Route path="kb" element={<KnowledgeBase />} />
+        {!isExternal && <Route path="kb" element={<KnowledgeBase />} />}
         {isManager && <Route path="people" element={<People />} />}
         {isAdmin && <Route path="audit" element={<AuditLog />} />}
         {isAdmin && <Route path="kpi-templates" element={<KpiTemplates />} />}

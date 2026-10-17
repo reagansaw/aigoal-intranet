@@ -23,7 +23,8 @@ const waUrl = (u?: string | null) => { const v = (u ?? '').trim(); if (!v) retur
 const blank: Partial<PurchaseAccount> = { product: 'AIGOAL', account_name: '', testimonial: false }
 
 export default function Accounts() {
-  const { profile, isAdmin } = useAuth()
+  const { profile, isAdmin, canManageCrm: isAdmin_ } = useAuth()
+  const mgr = isAdmin_   // Admin or Manager: may edit any account
   const staff = useStaff()
   const [params] = useSearchParams()
   const [rows, setRows] = useState<PurchaseAccount[]>([])
@@ -65,7 +66,7 @@ export default function Accounts() {
     return { r, p: buildPipeline(r, sessions), last: ns.find((n) => n.kind !== 'reminder'), next: ns.find((n) => n.next_action && n.kind !== 'reminder'), openIssues: ns.filter((n) => n.kind === 'issue' && !n.resolved).length }
   }), [rows, sessions, notesBy])
   const count = (...k: StageKey[]) => withP.filter((x) => k.includes(x.p.stage)).length
-  const canBuild = (r: Partial<PurchaseAccount>) => isAdmin || (r.builder_ids ?? []).includes(me)
+  const canBuild = (r: Partial<PurchaseAccount>) => mgr || (r.builder_ids ?? []).includes(me)
 
   const salesPeople = staff.filter((s) => s.is_sales || s.role === 'admin')
   const builders = staff.filter((s) => s.is_ai_builder)
@@ -128,8 +129,8 @@ export default function Accounts() {
   // ───── modal pieces ─────
   const cur = edit?.id ? withP.find((x) => x.r.id === edit.id) : undefined
   const editable = !edit?.id || canBuild(edit)
-  const identityEditable = !edit?.id || isAdmin                                   // contact details, industry, category, purchase date
-  const nameEditable = !edit?.id || isAdmin || (edit.builder_ids ?? []).includes(me)  // company name
+  const identityEditable = !edit?.id || mgr                                   // contact details, industry, category, purchase date
+  const nameEditable = !edit?.id || mgr || (edit.builder_ids ?? []).includes(me)  // company name
   const nextBooking = cur && ['o1', 'o2', 'o3'].includes(cur.p.stage)
     ? sessions.filter((s) => s.account_id === cur.r.id && s.round === Number(cur.p.stage[1]) && s.status !== 'cancelled' && s.status !== 'completed').sort((a, b) => b.start_at.localeCompare(a.start_at))[0] : undefined
   const field = (k: keyof PurchaseAccount, label: string, locked = false, type?: 'date') => (
@@ -141,8 +142,8 @@ export default function Accounts() {
     </div>
   )
   const people = (k: 'ai_builder' | 'ai_builder_2' | 'sales' | 'closed_by', label: string, list: typeof staff, extra: string[] = []) => (
-    <div className="field"><label>{label} {!isAdmin && <Lock size={11} className="i" />}</label>
-      <Select block disabled={!isAdmin} value={(edit?.[k] as string) ?? ''} onChange={(v) => set(k, v || null)} options={nameOpts(list, edit?.[k] as string, extra)} /></div>
+    <div className="field"><label>{label} {!mgr && <Lock size={11} className="i" />}</label>
+      <Select block disabled={!mgr} value={(edit?.[k] as string) ?? ''} onChange={(v) => set(k, v || null)} options={nameOpts(list, edit?.[k] as string, extra)} /></div>
   )
   const builderNames = [edit?.ai_builder, edit?.ai_builder_2].filter(Boolean).join(' / ')
 
@@ -150,7 +151,7 @@ export default function Accounts() {
     <>
       <PageHeader title="Purchase Accounts" sub="Every customer who bought AIGOAL and where they are in the onboarding flow. Only the AI Builder of an account can edit it.">
         <button onClick={() => setVoice(true)}><Mic size={16} />Voice update</button>
-        {isAdmin && <button className="primary" onClick={() => open({ ...blank })}><Plus size={16} />Add account</button>}
+        {mgr && <button className="primary" onClick={() => open({ ...blank })}><Plus size={16} />Add account</button>}
       </PageHeader>
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
@@ -228,7 +229,7 @@ export default function Accounts() {
                       {mine && p.stage === 'devdone' && <button className="sm primary" onClick={() => act(r.id, 'done')}><Check size={14} />Develop Done</button>}
                       <div className="row" style={{ gap: '.3rem', flexWrap: 'nowrap' }}>
                         {!r.frozen && <Menu label="Remind" icon={Bell} options={remindOptions} onPick={(pid) => { setRemindText(''); setRemindFor({ id: r.id, pid, name: remindOptions.find((o) => o.value === pid)?.label ?? '' }) }} />}
-                        {isAdmin && <button className="ghost icon sm" title={r.frozen ? 'Unfreeze' : 'Freeze account'} aria-label={r.frozen ? 'Unfreeze' : 'Freeze account'} onClick={() => { setFreezeText(''); setFreezeFor({ id: r.id, name: r.account_name, frozen: !!r.frozen }) }}><Snowflake size={15} style={r.frozen ? { color: 'var(--brand)' } : undefined} /></button>}
+                        {mgr && <button className="ghost icon sm" title={r.frozen ? 'Unfreeze' : 'Freeze account'} aria-label={r.frozen ? 'Unfreeze' : 'Freeze account'} onClick={() => { setFreezeText(''); setFreezeFor({ id: r.id, name: r.account_name, frozen: !!r.frozen }) }}><Snowflake size={15} style={r.frozen ? { color: 'var(--brand)' } : undefined} /></button>}
                         <button className="ghost icon sm" aria-label={mine ? 'Edit' : 'View'} onClick={() => open(r)}>{mine ? <Pencil size={15} /> : <Eye size={15} />}</button>
                       </div>
                     </div>
@@ -271,9 +272,9 @@ export default function Accounts() {
                   <div className="row">
                     {canBuild(edit) && cur.p.stage === 'dev' && <button type="button" className="primary" onClick={() => act(cur.r.id, 'start')}><Hammer size={16} />Develop</button>}
                     {canBuild(edit) && cur.p.stage === 'devdone' && <button type="button" className="primary" onClick={() => act(cur.r.id, 'done')}><Check size={16} />Develop Done</button>}
-                    {isAdmin && <button type="button" onClick={() => { setFreezeText(''); setFreezeFor({ id: cur.r.id, name: cur.r.account_name, frozen: !!cur.r.frozen }) }}><Snowflake size={16} />{cur.r.frozen ? 'Unfreeze account' : 'Freeze account'}</button>}
-                    {isAdmin && cur.p.stage === 'o1' && <button type="button" onClick={() => act(cur.r.id, 'start')}><Hammer size={16} />Start develop anyway</button>}
-                    {isAdmin && (cur.r.develop_started_at || cur.r.develop_done_at) && <button type="button" className="ghost" onClick={() => confirm('Undo the Develop steps for this account?') && act(cur.r.id, 'reset')}><Undo2 size={16} />Undo develop</button>}
+                    {mgr && <button type="button" onClick={() => { setFreezeText(''); setFreezeFor({ id: cur.r.id, name: cur.r.account_name, frozen: !!cur.r.frozen }) }}><Snowflake size={16} />{cur.r.frozen ? 'Unfreeze account' : 'Freeze account'}</button>}
+                    {mgr && cur.p.stage === 'o1' && <button type="button" onClick={() => act(cur.r.id, 'start')}><Hammer size={16} />Start develop anyway</button>}
+                    {mgr && (cur.r.develop_started_at || cur.r.develop_done_at) && <button type="button" className="ghost" onClick={() => confirm('Undo the Develop steps for this account?') && act(cur.r.id, 'reset')}><Undo2 size={16} />Undo develop</button>}
                   </div>
                 </div>
               </div>
@@ -304,9 +305,9 @@ export default function Accounts() {
               </div>
 
               <div className="sect">
-                <h3>Team {!isAdmin && <Lock size={12} className="i" />}</h3>
+                <h3>Team {!mgr && <Lock size={12} className="i" />}</h3>
                 <div className="form-grid">
-                  <div className="field"><label>Assigned sales {!isAdmin && <Lock size={11} className="i" />}</label><Select block disabled={!isAdmin} value={ownerValue(edit)} onChange={(v) => setEdit(applyOwner(edit, v, staff))} options={ownerOptions(salesPeople, ownerNames)} /></div>
+                  <div className="field"><label>Assigned sales {!mgr && <Lock size={11} className="i" />}</label><Select block disabled={!mgr} value={ownerValue(edit)} onChange={(v) => setEdit(applyOwner(edit, v, staff))} options={ownerOptions(salesPeople, ownerNames)} /></div>
                   {people('ai_builder', 'AI Builder 1', builders)}{people('ai_builder_2', 'AI Builder 2', builders)}
                   {people('closed_by', 'Closed via (成交)', salesPeople, ['Webinar'])}
                 </div>

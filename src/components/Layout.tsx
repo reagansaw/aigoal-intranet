@@ -13,7 +13,7 @@ import { initials } from './ui'
  *  Admin (all)   + Knowledge Base, Audit Log, KPI Templates
  */
 export default function Layout() {
-  const { profile, isAdmin, isHr, isManager, signOut } = useAuth()
+  const { profile, isAdmin, isHr, isManager, isExternal, signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const [waiting, setWaiting] = useState(0)
   const loc = useLocation()
@@ -41,13 +41,13 @@ export default function Layout() {
       <aside className={'side' + (open ? ' open' : '')}>
         <div className="brand"><img src={asset('logo-mark.png')} alt="AIGOAL" className="logo-img" width={36} height={36} />AIGOAL Intranet</div>
         {link('/', 'Home', LayoutDashboard)}
-        {link('/todos', 'To-Do', ListChecks)}
+        {!isExternal && link('/todos', 'To-Do', ListChecks)}
         {(isAdmin || isHr) && link('/calendar', 'Calendar & Leave', CalendarDays)}
         {isManager && link('/kpi', 'PDR / KPI', BarChart3)}
         {isManager && link('/meetings', 'Meeting Minutes', NotebookPen)}
         {link('/accounts', 'Purchase Accounts', ReceiptText, waiting)}
         {link('/customers', 'Follow-Up Customers', PhoneCall)}
-        {link('/kb', 'Knowledge Base', BookOpen)}
+        {!isExternal && link('/kb', 'Knowledge Base', BookOpen)}
         {isManager && <div className="nav-label">Manage</div>}
         {isManager && link('/people', 'People', Users)}
         {isAdmin && link('/audit', 'Audit Log', ScrollText)}

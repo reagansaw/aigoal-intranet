@@ -8,7 +8,7 @@ import type { Profile, Role } from '../lib/types'
 
 const EMP = opts(['Full-time', 'Part-time', 'Contract', 'Freelance/Partner', 'Intern'])
 const GENDER = [{ value: '', label: '—' }, ...opts(['Male', 'Female', 'Other'])]
-const ROLES = [{ value: 'staff', label: 'Staff' }, { value: 'hr', label: 'HR' }, { value: 'admin', label: 'Admin' }]
+const ROLES = [{ value: 'staff', label: 'Staff' }, { value: 'manager', label: 'Manager (edits all accounts and leads)' }, { value: 'external', label: 'External (own accounts and leads only)' }, { value: 'hr', label: 'HR' }, { value: 'admin', label: 'Admin' }]
 const blank = { is_sales: false, is_ai_builder: false, email: '', password: '', full_name: '', phone: '', title: '', gender: '', employment_type: 'Full-time', start_date: '', end_date: '', role: 'staff' as Role }
 
 async function call(body: object) {

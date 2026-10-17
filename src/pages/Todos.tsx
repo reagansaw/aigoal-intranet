@@ -99,7 +99,7 @@ export default function Todos() {
         <DelayTag t={t} />
         {t.priority === 'high' && <span className="tag warn">High</span>}
         <span className="acts">
-          <button className="ghost icon sm danger" title="Delete" aria-label="Delete" onClick={() => del(t)}><Trash2 size={15} /></button>
+          {!(t.delayed_days > 0 || o === 'missed') && <button className="ghost icon sm danger" title="Delete" aria-label="Delete" onClick={() => del(t)}><Trash2 size={15} /></button>}
         </span>
       </div>
     )

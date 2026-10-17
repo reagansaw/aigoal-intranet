@@ -74,7 +74,7 @@ export default function TodayView({ uid, day, setDay, todays, overdue, backlog, 
         <DelayTag t={t} />
         <span className="acts">
           {!t.done && <button className="sm" title="Move to a later day (the delay is recorded)" onClick={() => { setMoveFor(t); setMoveTo(addDays(today(), 1)); setErr('') }}><ArrowRight size={14} />Move</button>}
-          <button className="ghost icon sm danger" title="Delete" aria-label="Delete" onClick={() => del(t)}><Trash2 size={15} /></button>
+          {!(t.delayed_days > 0 || o === 'missed') && <button className="ghost icon sm danger" title="Delete" aria-label="Delete" onClick={() => del(t)}><Trash2 size={15} /></button>}
         </span>
       </div>
     )

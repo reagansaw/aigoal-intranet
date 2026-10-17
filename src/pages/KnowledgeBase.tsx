@@ -7,7 +7,7 @@ import { Empty, PageHeader, SearchBox } from '../components/ui'
 import type { KbArticle } from '../lib/types'
 
 export default function KnowledgeBase() {
-  const { isAdmin } = useAuth()
+  const { canManageCrm: isAdmin } = useAuth()   // Admin or Manager may add and edit; everyone else reads
   const [rows, setRows] = useState<KbArticle[]>([])
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')

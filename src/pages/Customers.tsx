@@ -49,7 +49,8 @@ const EDITABLE: (keyof Customer)[] = ['webinar_invite_date', 'name', 'phone', 'e
   'team_size', 'monthly_revenue', 'leads_per_day', 'reply_method', 'missed_leads', 'channels', 'other_courses', 'result', 'prospect', 'lead_status', 'status_remark']
 
 export default function Customers() {
-  const { isAdmin, profile } = useAuth()
+  const { isAdmin: adminOnly, canManageCrm, profile } = useAuth()
+  const isAdmin = canManageCrm   // Admin or Manager: may edit any lead (import, products and delete stay Admin-only below)
   const viewAll = isAdmin || !!profile?.can_view_all_leads   // may see every lead (editing stays with the assigned sales person)
   const canEditRow = (r: Partial<Customer>) => isAdmin || !r.id || r.owner_id === profile?.id
   const staff = useStaff()
@@ -203,9 +204,9 @@ export default function Customers() {
     <>
       <PageHeader title={viewAll ? 'Follow-Up Customers' : 'My Follow-Up Customers'} sub={viewAll ? (isAdmin ? 'Main list. Each sales person only sees the leads assigned to them.' : 'All leads. You can edit the ones assigned to you; the rest are view only.') : 'Leads assigned to you.'}>
         <button onClick={() => setVoice(true)}><Mic size={16} />Voice update</button>
-        {isAdmin && <CsvImport onRows={importRows} />}
+        {adminOnly && <CsvImport onRows={importRows} />}
         {isAdmin && <button onClick={() => setAssignOpen(true)}><UserCheck size={16} />Assign leads</button>}
-        {isAdmin && <button onClick={() => setProdOpen(true)}><Package size={16} />Products</button>}
+        {adminOnly && <button onClick={() => setProdOpen(true)}><Package size={16} />Products</button>}
         {isAdmin && <button className="primary" onClick={() => open({ ...blank })}><Plus size={16} />Add customer</button>}
       </PageHeader>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
@@ -380,7 +381,7 @@ export default function Customers() {
                 {err && <Alert text={err} />}
                 {!viewOnly && <div className="modal-foot">
                   <button className="primary"><Save size={16} />Save</button>
-                  {edit.id && isAdmin && <button type="button" className="danger" onClick={del}><Trash2 size={16} />Delete</button>}
+                  {edit.id && adminOnly && <button type="button" className="danger" onClick={del}><Trash2 size={16} />Delete</button>}
                 </div>}
               </>
             )}
