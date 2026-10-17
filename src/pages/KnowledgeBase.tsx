@@ -29,6 +29,7 @@ export default function KnowledgeBase() {
   const [edit, setEdit] = useState<Partial<KbArticle> | null>(null)
   const [err, setErr] = useState('')
   const [copied, setCopied] = useState('')
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})   // cards showing their full content
   // categories editor
   const [draft, setDraft] = useState<CatDraft[] | null>(null)
   const [delIds, setDelIds] = useState<{ cats: string[]; subs: string[] }>({ cats: [], subs: [] })
@@ -160,7 +161,12 @@ export default function KnowledgeBase() {
             <div className="row between"><span className="row" style={{ gap: '.3rem' }}><span className="tag">{a.category}{a.subcategory && <> › {a.subcategory}</>}</span>{a.visibility === 'private' && <span className="tag warn" title={`Private · ${a.allowed_ids.length} person${a.allowed_ids.length === 1 ? '' : 's'} can see it`}><Lock size={11} />Private{canEditKb && a.allowed_ids.length > 0 && ` · ${a.allowed_ids.length}`}</span>}</span>{a.pinned && <Pin size={15} className="i" style={{ color: 'var(--brand)' }} aria-label="Pinned" />}</div>
             <h2 style={{ margin: '.7rem 0 .4rem' }}>{a.title}</h2>
             {a.url && <a href={a.url} target="_blank" rel="noreferrer" className="row sm-text" style={{ gap: '.3rem', marginBottom: '.4rem' }}><ExternalLink size={14} />Open link</a>}
-            {a.body && <div className="pre muted sm-text" style={{ maxHeight: 170, overflow: 'auto', marginBottom: '.6rem' }}>{a.body}</div>}
+            {a.body && (
+              <div style={{ marginBottom: '.6rem' }}>
+                <div className={'pre muted sm-text kb-body' + (expanded[a.id] ? '' : ' clamp')}>{a.body}</div>
+                {(a.body.length > 260 || a.body.split('\n').length > 6) && <button type="button" className="link sm-text" onClick={() => setExpanded({ ...expanded, [a.id]: !expanded[a.id] })}>{expanded[a.id] ? 'Show less' : 'Show more'}</button>}
+              </div>
+            )}
             <div className="row" style={{ marginTop: 'auto', paddingTop: '.5rem' }}>
               <button className="sm" onClick={() => copy(a)}>{copied === a.id ? <Check size={14} /> : <Copy size={14} />}{copied === a.id ? 'Copied' : 'Copy'}</button>
               {canEditKb && <button className="sm ghost" onClick={() => { setEdit(a); setErr('') }}><Pencil size={14} />Edit</button>}

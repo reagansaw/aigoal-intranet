@@ -587,3 +587,10 @@ tr.picked td { background: var(--brand-soft); }
 .kbrow .grip { color: var(--muted); cursor: grab; display: inline-flex; touch-action: none; }
 .kbrow.dragging { opacity: .45; }
 .kbrow.over { border-color: var(--brand); background: var(--brand-soft); }
+
+/* Knowledge Base card text: long links wrap, nothing scrolls inside a card */
+.kb-body { overflow-wrap: anywhere; word-break: break-word; overflow: hidden; }
+.kb-body.clamp { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; }
+.kb-body a, .card .pre { overflow-wrap: anywhere; }
+button.link { border: 0; background: transparent; padding: .15rem 0; color: var(--brand); font-weight: 600; box-shadow: none; }
+button.link:hover { background: transparent; text-decoration: underline; }
