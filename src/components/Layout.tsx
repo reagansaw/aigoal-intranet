@@ -27,7 +27,7 @@ export default function Layout() {
   }, [profile?.id, loc.pathname])
 
   const link = (to: string, label: string, Ico: typeof Menu, badge = 0) => (
-    <NavLink to={to} end={to === '/'} className={({ isActive }) => 'nav' + (isActive ? ' active' : '')} onClick={() => setOpen(false)}>
+    <NavLink to={to} className={({ isActive }) => 'nav' + (isActive ? ' active' : '')} onClick={() => setOpen(false)}>
       <Ico size={18} />{label}{badge > 0 && <span className="nav-badge">{badge}</span>}
     </NavLink>
   )
@@ -40,7 +40,7 @@ export default function Layout() {
       <div className={'scrim' + (open ? ' show' : '')} onClick={() => setOpen(false)} />
       <aside className={'side' + (open ? ' open' : '')}>
         <div className="brand"><img src={asset('logo-mark.png')} alt="AIGOAL" className="logo-img" width={36} height={36} />AIGOAL Intranet</div>
-        {link('/', 'Home', LayoutDashboard)}
+        {link('/home', 'Home', LayoutDashboard)}
         {!isExternal && link('/todos', 'To-Do', ListChecks)}
         {(isAdmin || isHr) && link('/calendar', 'Calendar & Leave', CalendarDays)}
         {isManager && link('/kpi', 'PDR / KPI', BarChart3)}
@@ -66,7 +66,7 @@ export default function Layout() {
       <main className="main"><Outlet /></main>
       {/* phone-only bottom bar (WhatsApp style): Home, To-Do, Knowledge Base */}
       <nav className="tabbar" aria-label="Quick navigation">
-        <NavLink to="/" end className={({ isActive }) => 'tab' + (isActive ? ' on' : '')}><LayoutDashboard size={22} /><span>Home</span></NavLink>
+        <NavLink to="/home" className={({ isActive }) => 'tab' + (isActive ? ' on' : '')}><LayoutDashboard size={22} /><span>Home</span></NavLink>
         {!isExternal && <NavLink to="/todos" className={({ isActive }) => 'tab' + (isActive ? ' on' : '')}><ListChecks size={22} /><span>To-Do</span></NavLink>}
         {!isExternal && <NavLink to="/kb" className={({ isActive }) => 'tab' + (isActive ? ' on' : '')}><BookOpen size={22} /><span>Knowledge Base</span></NavLink>}
       </nav>

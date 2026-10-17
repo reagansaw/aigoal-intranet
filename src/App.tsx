@@ -1,5 +1,5 @@
 import { ShieldAlert } from 'lucide-react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -19,8 +19,10 @@ import Calendar from './pages/Calendar'
 
 export default function App() {
   const { session, profile, loading, isAdmin, isHr, isManager, isExternal, signOut } = useAuth()
+  const loc = useLocation()
   if (loading) return <div className="center muted">Loading…</div>
-  if (!session) return <Login />
+  if (!session) return loc.pathname === '/login' ? <Login /> : <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />
+  if (loc.pathname === '/login') return <Navigate to={(loc.state as any)?.from && (loc.state as any).from !== '/login' ? (loc.state as any).from : '/home'} replace />
   const ended = !!profile?.end_date && profile.end_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' })
   if (!profile || !profile.active || ended)
     return (
@@ -39,7 +41,8 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<Home />} />
+        <Route index element={<Navigate to="/home" replace />} />
+        <Route path="home" element={<Home />} />
         <Route path="profile" element={<Profile />} />
         {!isExternal && <Route path="todos" element={<Todos />} />}
         {isManager && <Route path="kpi" element={<Kpi />} />}
@@ -51,7 +54,7 @@ export default function App() {
         {isManager && <Route path="people" element={<People />} />}
         {isAdmin && <Route path="audit" element={<AuditLog />} />}
         {isAdmin && <Route path="kpi-templates" element={<KpiTemplates />} />}
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<Navigate to="/home" replace />} />
       </Route>
     </Routes>
   )
