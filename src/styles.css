@@ -594,3 +594,14 @@ tr.picked td { background: var(--brand-soft); }
 .kb-body a, .card .pre { overflow-wrap: anywhere; }
 button.link { border: 0; background: transparent; padding: .15rem 0; color: var(--brand); font-weight: 600; box-shadow: none; }
 button.link:hover { background: transparent; text-decoration: underline; }
+
+/* ───── phone bottom bar ───── */
+.tabbar { display: none; }
+@media (max-width: 860px) {
+  .tabbar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--surface); border-top: 1px solid var(--line); padding: .35rem .5rem calc(.35rem + env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(15, 23, 42, .06); }
+  .tabbar .tab { display: flex; flex-direction: column; align-items: center; gap: .15rem; padding: .3rem .25rem; border-radius: 10px; color: var(--muted); text-decoration: none; font-size: .68rem; font-weight: 600; line-height: 1.1; text-align: center; }
+  .tabbar .tab.on { color: var(--brand); }
+  .tabbar .tab.on svg { background: var(--brand-soft); border-radius: 99px; padding: .2rem .7rem; box-sizing: content-box; }
+  .main { padding-bottom: calc(5.2rem + env(safe-area-inset-bottom)); }
+  .modal-bg { bottom: 0; }
+}

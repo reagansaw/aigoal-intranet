@@ -64,6 +64,12 @@ export default function Layout() {
         </div>
       </aside>
       <main className="main"><Outlet /></main>
+      {/* phone-only bottom bar (WhatsApp style): Home, To-Do, Knowledge Base */}
+      <nav className="tabbar" aria-label="Quick navigation">
+        <NavLink to="/" end className={({ isActive }) => 'tab' + (isActive ? ' on' : '')}><LayoutDashboard size={22} /><span>Home</span></NavLink>
+        {!isExternal && <NavLink to="/todos" className={({ isActive }) => 'tab' + (isActive ? ' on' : '')}><ListChecks size={22} /><span>To-Do</span></NavLink>}
+        {!isExternal && <NavLink to="/kb" className={({ isActive }) => 'tab' + (isActive ? ' on' : '')}><BookOpen size={22} /><span>Knowledge Base</span></NavLink>}
+      </nav>
     </div>
   )
 }
