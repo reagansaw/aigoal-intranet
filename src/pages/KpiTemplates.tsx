@@ -1,3 +1,4 @@
+import { useConfirm } from '../lib/confirm'
 import { useEffect, useState } from 'react'
 import { Copy, Plus, Save, Trash2 } from 'lucide-react'
 import { Msg, NumberInput, PageHeader, Select } from '../components/ui'
@@ -14,6 +15,7 @@ const SOURCE = [{ value: 'manual', label: 'Typed by reviewer' }, { value: 'atten
 const DIR = [{ value: 'higher', label: 'Higher is better' }, { value: 'lower', label: 'Lower is better' }, { value: 'manual', label: 'Manual score' }]
 
 export default function KpiTemplates() {
+  const ask = useConfirm()
   const [list, setList] = useState<KpiTemplate[]>([])
   const [sel, setSel] = useState<KpiTemplate | null>(null)
   const [items, setItems] = useState<KpiItem[]>([])
@@ -47,7 +49,7 @@ export default function KpiTemplates() {
     }
   }
   const remove = async () => {
-    if (!sel || !confirm(`Delete “${sel.name}”? Existing scorecards using it will block deletion.`)) return
+    if (!sel || !(await ask(`Delete “${sel.name}”? Existing scorecards using it will block deletion.`, { title: 'Delete template', ok: 'Delete' }))) return
     const { error } = await supabase.from('kpi_templates').delete().eq('id', sel.id)
     if (error) return setMsg('Cannot delete — it is used by scorecards. Untick “Active” instead.')
     setSel(null); loadList()

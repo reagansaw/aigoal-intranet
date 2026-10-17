@@ -1,3 +1,4 @@
+import { useConfirm } from '../lib/confirm'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { BookOpen, Check, Copy, ExternalLink, FolderCog, Lock, Pencil, Pin, Plus, Save, Trash2 } from 'lucide-react'
 import { useStaff } from '../lib/useStaff'
@@ -11,6 +12,7 @@ import type { KbArticle } from '../lib/types'
 
 export default function KnowledgeBase() {
   const { canEditKb: isAdmin, isAdmin: adminOnly } = useAuth()   // categories themselves are set by Admin only
+  const ask = useConfirm()
   const [catList, setCatList] = useState<KbCategory[]>([])
   const [catOpen, setCatOpen] = useState(false)
   const [newCat, setNewCat] = useState('')
@@ -33,6 +35,7 @@ export default function KnowledgeBase() {
 
   // tabs follow the Admin's order; a category only shows when it has an article (or is active)
   const cats = useMemo(() => { const used = new Set(rows.map((r) => r.category)); return [...catList.filter((c) => c.active || used.has(c.name)).map((c) => c.name), ...[...used].filter((n) => !catList.some((c) => c.name === n))] }, [rows, catList])
+  const catCount = (name: string) => rows.filter((r) => r.category === name).length
   const catOpts = catList.filter((c) => c.active).map((c) => ({ value: c.name, label: c.name }))
   const catRun = async (p: PromiseLike<{ error: { message: string } | null }>) => { const { error } = await p; setCatMsg(error ? error.message : ''); load() }
   const shown = rows.filter((r) => (!cat || r.category === cat) && (!q || [r.title, r.body, r.category].join(' ').toLowerCase().includes(q.toLowerCase())))
@@ -45,7 +48,7 @@ export default function KnowledgeBase() {
     if (error) return setErr(error.message)
     setEdit(null); setErr(''); load()
   }
-  const del = async () => { if (edit?.id && confirm('Delete this article?')) { await supabase.from('kb_articles').delete().eq('id', edit.id); setEdit(null); load() } }
+  const del = async () => { if (edit?.id && await ask('Delete this article?', { title: 'Delete article', ok: 'Delete' })) { await supabase.from('kb_articles').delete().eq('id', edit.id); setEdit(null); load() } }
   const copy = async (a: KbArticle) => { await navigator.clipboard.writeText(a.body ?? a.url ?? ''); setCopied(a.id); setTimeout(() => setCopied(''), 1500) }
   const set = (k: keyof KbArticle, v: any) => setEdit({ ...edit, [k]: v })
 
@@ -78,13 +81,13 @@ export default function KnowledgeBase() {
 
       {catOpen && (
         <Modal title="Knowledge Base categories" onClose={() => setCatOpen(false)}>
-          <p className="muted" style={{ marginTop: 0 }}>Editors pick from this list. Rename a category and its articles follow. A retired category is hidden from the picker but its existing articles stay.</p>
+          <p className="muted" style={{ marginTop: 0 }}>Editors pick from this list. Rename a category and its articles follow. A category can only be deleted once it has no articles — move them to another category first.</p>
           {catList.map((c) => (
-            <div key={c.id} className="row" style={{ gap: '.5rem', marginBottom: '.5rem', opacity: c.active ? 1 : .55 }}>
+            <div key={c.id} className="row" style={{ gap: '.5rem', marginBottom: '.5rem' }}>
               <div style={{ width: 70 }}><NumberInput value={c.sort} onChange={(v) => catRun(supabase.from('kb_categories').update({ sort: v ?? 0 }).eq('id', c.id))} /></div>
               <input style={{ flex: 1 }} defaultValue={c.name} onBlur={(e) => { const n = e.target.value.trim(); if (n && n !== c.name) catRun(supabase.from('kb_categories').update({ name: n }).eq('id', c.id)) }} />
-              <span className="muted sm-text" style={{ width: 60 }}>{rows.filter((r) => r.category === c.name).length} item{rows.filter((r) => r.category === c.name).length === 1 ? '' : 's'}</span>
-              <button className="sm" onClick={() => catRun(supabase.from('kb_categories').update({ active: !c.active }).eq('id', c.id))}>{c.active ? 'Retire' : 'Restore'}</button>
+              <span className="muted sm-text" style={{ width: 60 }}>{catCount(c.name)} item{catCount(c.name) === 1 ? '' : 's'}</span>
+              <button className="sm danger" disabled={catCount(c.name) > 0} title={catCount(c.name) ? `Move its ${catCount(c.name)} article${catCount(c.name) === 1 ? '' : 's'} to another category first` : 'Delete this category'} onClick={async () => { if (await ask(<>Delete the category <b>{c.name}</b>?</>, { title: 'Delete category', ok: 'Delete' })) catRun(supabase.from('kb_categories').delete().eq('id', c.id)) }}><Trash2 size={14} />Delete</button>
             </div>
           ))}
           <div className="row" style={{ gap: '.5rem', marginTop: '.8rem' }}>

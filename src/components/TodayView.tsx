@@ -1,3 +1,4 @@
+import { useConfirm } from '../lib/confirm'
 import { useState, type FormEvent } from 'react'
 import { AlarmClockOff, ArrowRight, CalendarClock, CalendarDays, Check, Clock, Inbox, ListChecks, Plus, Timer, Trash2, TriangleAlert } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -26,6 +27,7 @@ export default function TodayView({ uid, day, setDay, todays, overdue, backlog, 
   uid: string; day: string; setDay: (d: string) => void
   todays: Todo[]; overdue: Todo[]; backlog: Todo[]; upcoming: Record<string, Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at' | 'delayed_days'>[]>; onChange: () => void
 }) {
+  const ask = useConfirm()
   const [title, setTitle] = useState('')
   const [when, setWhen] = useState<When>('today')
   const [pickDay, setPickDay] = useState(day)
@@ -50,7 +52,7 @@ export default function TodayView({ uid, day, setDay, todays, overdue, backlog, 
     setTitle(''); setNotes(''); setAmount(null); setErr(''); onChange()
   }
   const toggle = async (t: Todo) => { await supabase.from('todos').update({ done: !t.done, done_at: !t.done ? new Date().toISOString() : null }).eq('id', t.id); onChange() }
-  const del = async (t: Todo) => { if (confirm('Delete this task?')) { await supabase.from('todos').delete().eq('id', t.id); onChange() } }
+  const del = async (t: Todo) => { if (await ask('Delete this task?', { title: 'Delete task', ok: 'Delete' })) { await supabase.from('todos').delete().eq('id', t.id); onChange() } }
   const schedule = async (t: Todo, d: string) => { if (d) { await supabase.from('todos').update({ due_date: d }).eq('id', t.id); onChange() } }
   const move = async () => {
     if (!moveFor || !moveTo) return

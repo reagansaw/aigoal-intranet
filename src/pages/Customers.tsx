@@ -1,3 +1,4 @@
+import { useConfirm } from '../lib/confirm'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Mic, UserCheck, Package, BadgeCheck, CalendarSync, ClipboardList, Video, Flame, History, Hourglass, Lock, MessageCircle, MessageSquare, Pencil, PhoneCall, PhoneOff, Plus, Save, Star, Timer, Trash2, UserRound, Users } from 'lucide-react'
@@ -50,6 +51,7 @@ const EDITABLE: (keyof Customer)[] = ['webinar_invite_date', 'name', 'phone', 'e
 
 export default function Customers() {
   const { isAdmin: adminOnly, canManageCrm, profile } = useAuth()
+  const confirmModal = useConfirm()
   const isAdmin = canManageCrm   // Admin or Manager: may edit any lead (import, products and delete stay Admin-only below)
   const viewAll = isAdmin || !!profile?.can_view_all_leads   // may see every lead (editing stays with the assigned sales person)
   const canEditRow = (r: Partial<Customer>) => isAdmin || !r.id || r.owner_id === profile?.id
@@ -169,7 +171,7 @@ export default function Customers() {
     if (error) return setErr(error.message)
     setEdit(null); setErr(''); load()
   }
-  const del = async () => { if (edit?.id && confirm('Delete this customer?')) { await supabase.from('customers').delete().eq('id', edit.id); setEdit(null); load() } }
+  const del = async () => { if (edit?.id && await confirmModal('Delete this customer?', { title: 'Delete customer', ok: 'Delete' })) { await supabase.from('customers').delete().eq('id', edit.id); setEdit(null); load() } }
   const txt = (k: keyof Customer, label: string, locked = false) => (
     <div className="field"><label>{label} {locked && !isAdmin && <Lock size={11} className="i" />}</label><input disabled={locked && !isAdmin} value={(edit?.[k] as string) ?? ''} onChange={(e) => set(k, e.target.value)} /></div>
   )

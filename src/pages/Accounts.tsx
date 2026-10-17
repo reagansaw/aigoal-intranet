@@ -1,3 +1,4 @@
+import { useConfirm } from '../lib/confirm'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { BadgeCheck, Bell, Mic, Snowflake, MessageCircle, CalendarClock, Check, Eye, Hammer, History, Lock, MessageSquare, Pencil, Plus, Receipt, Save, Trash2, Undo2, UserCog, Video, Wrench } from 'lucide-react'
@@ -24,6 +25,7 @@ const blank: Partial<PurchaseAccount> = { product: 'AIGOAL', account_name: '', t
 
 export default function Accounts() {
   const { profile, isAdmin, canManageCrm: isAdmin_ } = useAuth()
+  const ask = useConfirm()
   const mgr = isAdmin_   // Admin or Manager: may edit any account
   const staff = useStaff()
   const [params] = useSearchParams()
@@ -123,7 +125,7 @@ export default function Accounts() {
     if (error) return setErr(error.message)
     setEdit(null); setErr(''); load()
   }
-  const del = async () => { if (edit?.id && confirm('Delete this account?')) { await supabase.from('purchase_accounts').delete().eq('id', edit.id); setEdit(null); load() } }
+  const del = async () => { if (edit?.id && await ask('Delete this account?', { title: 'Delete account', ok: 'Delete' })) { await supabase.from('purchase_accounts').delete().eq('id', edit.id); setEdit(null); load() } }
   const set = (k: keyof PurchaseAccount, v: any) => setEdit({ ...edit, [k]: v })
 
   // ───── modal pieces ─────
@@ -274,7 +276,7 @@ export default function Accounts() {
                     {canBuild(edit) && cur.p.stage === 'devdone' && <button type="button" className="primary" onClick={() => act(cur.r.id, 'done')}><Check size={16} />Develop Done</button>}
                     {mgr && <button type="button" onClick={() => { setFreezeText(''); setFreezeFor({ id: cur.r.id, name: cur.r.account_name, frozen: !!cur.r.frozen }) }}><Snowflake size={16} />{cur.r.frozen ? 'Unfreeze account' : 'Freeze account'}</button>}
                     {mgr && cur.p.stage === 'o1' && <button type="button" onClick={() => act(cur.r.id, 'start')}><Hammer size={16} />Start develop anyway</button>}
-                    {mgr && (cur.r.develop_started_at || cur.r.develop_done_at) && <button type="button" className="ghost" onClick={() => confirm('Undo the Develop steps for this account?') && act(cur.r.id, 'reset')}><Undo2 size={16} />Undo develop</button>}
+                    {mgr && (cur.r.develop_started_at || cur.r.develop_done_at) && <button type="button" className="ghost" onClick={async () => (await ask('Undo the Develop steps for this account?', { title: 'Undo develop', ok: 'Undo' })) && act(cur.r.id, 'reset')}><Undo2 size={16} />Undo develop</button>}
                   </div>
                 </div>
               </div>

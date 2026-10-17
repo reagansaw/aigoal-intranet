@@ -570,3 +570,10 @@ tr.picked td { background: var(--brand-soft); }
 .strip-day.bad { border-color: var(--bad); background: var(--bad-soft); } .strip-day.bad span { color: var(--bad); font-weight: 700; }
 .strip-day.sel { outline: 2px solid var(--brand); outline-offset: 1px; }
 .strip-day:hover { border-color: var(--brand); }
+
+/* small confirm dialog: stays a centred card on every screen size */
+.modal-bg.sm-bg { padding: 1rem; place-items: center; background: rgba(15, 23, 42, .55); backdrop-filter: blur(2px); }
+.modal.sm { max-width: 420px; width: 100%; height: auto; max-height: 92vh; border-radius: 16px; border: 1px solid var(--line); box-shadow: var(--shadow-lg); }
+.modal.sm .modal-head { padding: .9rem 1.1rem .7rem; }
+.modal.sm .modal-head h2 { font-size: 1.05rem; }
+.modal.sm .modal-body { padding: 1rem 1.1rem 1.1rem; }

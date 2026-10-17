@@ -1,3 +1,4 @@
+import { useConfirm } from '../lib/confirm'
 import { useEffect, useMemo, useState } from 'react'
 import { Check, BadgeDollarSign, Banknote, ChevronLeft, ChevronRight, Coins, Lock, LockOpen, Plus, Save, Target, Trash2, TrendingUp, Wallet, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
@@ -32,6 +33,7 @@ const wednesdays = (month: string) => {
 
 export default function Kpi() {
   const { profile, isManager } = useAuth()
+  const ask = useConfirm()
   const allStaff = useStaff()
   const staff = useMemo(() => allStaff.filter((s) => s.role !== 'admin'), [allStaff]) // KPI is for non-admin staff only
   const [uid, setUid] = useState(profile!.id)
@@ -129,7 +131,7 @@ export default function Kpi() {
     setMsg(err ? err.message : 'Saved ✓')
     if (!err) { await load(); loadHistory() }
   }
-  const del = async () => { if (review && confirm("Delete this month's scorecard?")) { await supabase.from('kpi_reviews').delete().eq('id', review.id); await load(); loadHistory() } }
+  const del = async () => { if (review && await ask("Delete this month's scorecard?", { title: 'Delete scorecard', ok: 'Delete' })) { await supabase.from('kpi_reviews').delete().eq('id', review.id); await load(); loadHistory() } }
   const setLock = async (locked: boolean) => { if (!review) return; setReview({ ...review, locked }); await supabase.from('kpi_reviews').update({ locked }).eq('id', review.id) }
 
   const patchScore = (id: string, p: Partial<KpiScore>) => setScores({ ...scores, [id]: { ...scores[id], ...p } })

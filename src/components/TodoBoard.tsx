@@ -1,3 +1,4 @@
+import { useConfirm } from '../lib/confirm'
 import { useState } from 'react'
 import { CalendarClock, MoveRight, Plus, Save, Timer, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -20,6 +21,7 @@ const rank = { high: 0, normal: 1, low: 2 }
 
 /** Trello-style board for the month: drag a card between To schedule / To do / Doing / Done (or use the Move menu on a phone). */
 export default function TodoBoard({ cards, uid, month, fallbackDay, onChange }: { cards: Todo[]; uid: string; month: string; fallbackDay?: string; onChange: () => void }) {
+  const ask = useConfirm()
   const [drag, setDrag] = useState('')
   const [over, setOver] = useState<Col | ''>('')
   const [isNew, setIsNew] = useState(false)
@@ -45,7 +47,7 @@ export default function TodoBoard({ cards, uid, month, fallbackDay, onChange }: 
     if (error) return setErr(error.message)
     setEdit(null); setIsNew(false); setErr(''); onChange()
   }
-  const del = async () => { if (edit && confirm('Delete this card?')) { await supabase.from('todos').delete().eq('id', edit.id); setEdit(null); onChange() } }
+  const del = async () => { if (edit && await ask('Delete this card?', { title: 'Delete card', ok: 'Delete' })) { await supabase.from('todos').delete().eq('id', edit.id); setEdit(null); onChange() } }
 
   return (
     <>

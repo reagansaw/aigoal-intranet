@@ -1,3 +1,4 @@
+import { useConfirm } from '../lib/confirm'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Ban, Briefcase, CalendarCheck, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Pencil, Plane, Plus, Save, Trash2, X } from 'lucide-react'
@@ -17,6 +18,7 @@ const first = (n: string) => n.split(' ')[0]
 
 export default function CalendarPage() {
   const { profile, isAdmin, isManager } = useAuth()
+  const ask = useConfirm()
   const staff = useStaff()
   const year = new Date().getFullYear()
   const [sp] = useSearchParams()
@@ -104,7 +106,7 @@ export default function CalendarPage() {
   useEffect(() => { if (tab === 'balances') loadBal() }, [tab])
   const saveEnt = async (id: string) => { const { error } = await supabase.from('profiles').update({ leave_entitlement: ent[id] ?? 0 }).eq('id', id); setMsg(error ? error.message : 'Saved ✓'); loadBal(); load() }
   const setAllLeave = async () => {
-    if (everyone == null || !confirm(`Set the annual leave entitlement of EVERYONE to ${everyone} days?`)) return
+    if (everyone == null || !(await ask(`Set the annual leave entitlement of EVERYONE to ${everyone} days?`, { title: 'Leave entitlement', ok: 'Set for everyone', danger: false }))) return
     const { error } = await supabase.rpc('set_leave_for_everyone', { days: everyone }); setMsg(error ? error.message : `Everyone now has ${everyone} days ✓`); loadBal(); load()
   }
   const [hYear, setHYear] = useState(String(year))
@@ -205,7 +207,7 @@ export default function CalendarPage() {
                   <td>{r.type === 'leave' ? r.days : <span className="muted">n/a</span>}</td>
                   <td>{statusTag(r.status)}{r.decision_note && <div className="muted sm-text">{r.decision_note}</div>}</td>
                   <td style={{ maxWidth: 280 }} className="muted">{r.reason}</td>
-                  <td>{['pending', 'approved'].includes(r.status) && r.end_date >= today() && <button className="sm" onClick={() => confirm('Cancel this request?') && decide(r, 'cancelled')}><Ban size={14} />Cancel</button>}</td>
+                  <td>{['pending', 'approved'].includes(r.status) && r.end_date >= today() && <button className="sm" onClick={async () => (await ask('Cancel this request?', { title: 'Cancel request', ok: 'Cancel request', cancel: 'Keep' })) && decide(r, 'cancelled')}><Ban size={14} />Cancel</button>}</td>
                 </tr>
               ))}
             </tbody>
@@ -342,7 +344,7 @@ export default function CalendarPage() {
           <Alert text={err} />
           <div className="modal-foot">
             <button className="primary" onClick={saveHol}><Save size={16} />Save</button>
-            {hol.id && <button className="danger" onClick={async () => { if (confirm('Delete this holiday?')) { await supabase.from('holidays').delete().eq('id', hol.id!); setHol(null); load() } }}><Trash2 size={16} />Delete</button>}
+            {hol.id && <button className="danger" onClick={async () => { if (await ask('Delete this holiday?', { title: 'Delete holiday', ok: 'Delete' })) { await supabase.from('holidays').delete().eq('id', hol.id!); setHol(null); load() } }}><Trash2 size={16} />Delete</button>}
           </div>
         </Modal>
       )}

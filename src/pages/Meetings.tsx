@@ -1,3 +1,4 @@
+import { useConfirm } from '../lib/confirm'
 import { useEffect, useMemo, useState } from 'react'
 import { Lock, CalendarCheck, CheckCircle2, ListPlus, NotebookPen, Pencil, Plus, Save, Trash2, Users, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
@@ -14,6 +15,7 @@ const isNew = (id?: string) => !id || id.startsWith('new-')
 
 export default function Meetings() {
   const { profile, isAdmin } = useAuth()
+  const ask = useConfirm()
   const staff = useStaff()
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [tasks, setTasks] = useState<MeetingTask[]>([])
@@ -64,7 +66,7 @@ export default function Meetings() {
     setBusy(false); setDraft(null); load()
   }
   const del = async () => {
-    if (draft?.meeting.id && confirm('Delete this meeting and its action items?')) { await supabase.from('meetings').delete().eq('id', draft.meeting.id); setDraft(null); load() }
+    if (draft?.meeting.id && await ask('Delete this meeting and its action items?', { title: 'Delete meeting', ok: 'Delete' })) { await supabase.from('meetings').delete().eq('id', draft.meeting.id); setDraft(null); load() }
   }
   const importTask = async (taskId: string) => {
     const { error } = await supabase.rpc('import_meeting_task', { task_id: taskId })
