@@ -220,6 +220,7 @@ export interface PurchaseAccount {
 export interface KbArticle {
   id: string
   category: string
+  subcategory: string | null
   title: string
   body: string | null
   url: string | null

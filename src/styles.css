@@ -577,3 +577,13 @@ tr.picked td { background: var(--brand-soft); }
 .modal.sm .modal-head { padding: .9rem 1.1rem .7rem; }
 .modal.sm .modal-head h2 { font-size: 1.05rem; }
 .modal.sm .modal-body { padding: 1rem 1.1rem 1.1rem; }
+
+/* Knowledge Base categories editor */
+.kbcat { padding: .5rem 0; border-bottom: 1px solid var(--line); }
+.kbcat:last-of-type { border-bottom: 0; }
+.kbsubs { margin: .45rem 0 .2rem 2.2rem; padding-left: .8rem; border-left: 2px solid var(--line); display: grid; gap: .4rem; justify-items: start; }
+.kbsubs > .row { width: 100%; }
+.kbrow { padding: .15rem .25rem; border-radius: 10px; border: 1px solid transparent; }
+.kbrow .grip { color: var(--muted); cursor: grab; display: inline-flex; touch-action: none; }
+.kbrow.dragging { opacity: .45; }
+.kbrow.over { border-color: var(--brand); background: var(--brand-soft); }
