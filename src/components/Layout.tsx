@@ -43,11 +43,11 @@ export default function Layout() {
         {link('/', 'Home', LayoutDashboard)}
         {link('/todos', 'To-Do', ListChecks)}
         {(isAdmin || isHr) && link('/calendar', 'Calendar & Leave', CalendarDays)}
-        {link('/kpi', 'PDR / KPI', BarChart3)}
-        {link('/meetings', 'Meeting Minutes', NotebookPen)}
+        {isManager && link('/kpi', 'PDR / KPI', BarChart3)}
+        {isManager && link('/meetings', 'Meeting Minutes', NotebookPen)}
         {link('/accounts', 'Purchase Accounts', ReceiptText, waiting)}
         {link('/customers', 'Follow-Up Customers', PhoneCall)}
-        {isAdmin && link('/kb', 'Knowledge Base', BookOpen)}
+        {link('/kb', 'Knowledge Base', BookOpen)}
         {isManager && <div className="nav-label">Manage</div>}
         {isManager && link('/people', 'People', Users)}
         {isAdmin && link('/audit', 'Audit Log', ScrollText)}

@@ -177,7 +177,7 @@ function Attention({ items }: { items: Item[] }) {
 }
 
 export default function Home() {
-  const { profile, isAdmin } = useAuth()
+  const { profile, isAdmin, isManager } = useAuth()
   const [todos, setTodos] = useState<Todo[]>([])
   // Team status: Admin accounts are left out; tick who to show (remembered in this browser)
   const [hidden, setHiddenRaw] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('team-hidden') ?? '[]') } catch { return [] } })
@@ -251,7 +251,7 @@ export default function Home() {
     { key: 'w', label: 'Accounts waiting on you', n: mine.waiting, to: '/accounts?pending=me', tone: 'red', icon: UserX },
     { key: 'o', label: 'Overdue to-dos', n: mine.overdue, to: '/todos', tone: 'red', icon: ListChecks },
     { key: 'u', label: 'Tasks to schedule', n: mine.unscheduled, to: '/todos', tone: 'orange', icon: CalendarClock },
-    { key: 'm', label: 'Meeting actions overdue', n: mine.meeting, to: '/meetings', tone: 'red', icon: NotebookPen },
+    { key: 'm', label: 'Meeting actions overdue', n: mine.meeting, to: isManager ? '/meetings' : '/todos', tone: 'red', icon: NotebookPen },
     { key: 'p', label: 'Your leads waiting on Management', n: mine.pm, to: '/customers?status=pending_management', tone: 'orange', icon: MessageSquareWarning },
   ]
 
@@ -314,8 +314,8 @@ export default function Home() {
         <>
       <div className="grid">
         <Stat icon={ListChecks} label="Your tasks done today" value={`${done} / ${todos.length}`} />
-        <Stat icon={BarChart3} tone="green" label={`${monthLabel(month)} base score`} value={kpi ? `${kpi.score} / ${kpi.max}` : 'Not set'} />
-        <Stat icon={Wallet} tone="orange" label="Estimated payout" value={kpi ? money(kpi.total, kpi.cur) : '—'} />
+        {isManager && <Stat icon={BarChart3} tone="green" label={`${monthLabel(month)} base score`} value={kpi ? `${kpi.score} / ${kpi.max}` : 'Not set'} />}
+        {isManager && <Stat icon={Wallet} tone="orange" label="Estimated payout" value={kpi ? money(kpi.total, kpi.cur) : '—'} />}
         <Stat icon={PhoneCall} tone="red" label="Your hot customers (P1)" value={hot} />
       </div>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
@@ -333,7 +333,7 @@ export default function Home() {
       </div>
         </>
       )}
-      {!isAdmin && kpi && <p className="muted sm-text">Scorecard: {kpi.tpl}</p>}
+      {isManager && !isAdmin && kpi && <p className="muted sm-text">Scorecard: {kpi.tpl}</p>}
     </>
   )
 }
