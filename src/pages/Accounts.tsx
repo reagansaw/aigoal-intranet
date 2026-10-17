@@ -13,7 +13,7 @@ import VoiceUpdate from '../components/VoiceUpdate'
 import AuditTrail from '../components/AuditTrail'
 import AccountNotes from '../components/AccountNotes'
 import { PipelineDots, Stepper } from '../components/Pipeline'
-import { Alert, ColumnFilter, DatePicker, Empty, Menu, Msg, PageHeader, Pagination, SearchBox, Select, Stat, usePaged, type Option } from '../components/ui'
+import { Alert, ColumnFilter, DatePicker, Empty, Menu, Msg, PageHeader, Pagination, SearchBox, Select, Stat, usePaged, type Option , usePhone } from '../components/ui'
 import type { AccountNote, OnboardingSession, PurchaseAccount } from '../lib/types'
 
 const IN_USE = [{ value: '', label: 'Unknown' }, { value: 'Y', label: 'Yes, in use' }, { value: 'P', label: 'Partially' }, { value: 'N', label: 'Not using' }]
@@ -116,6 +116,45 @@ export default function Accounts() {
   const remindOptions: Option[] = builders.filter((b) => b.id !== me).map((b) => ({ value: b.id, label: b.full_name }))
 
   const open = (r: Partial<PurchaseAccount>, t: typeof tab = 'details') => { setEdit(r); setTab(t); setErr(''); setRemindNote('') }
+  const phone = usePhone()
+  const pipeCell = (r: PurchaseAccount, p: ReturnType<typeof buildPipeline>, mine: boolean) => (
+    <>
+      <PipelineDots p={p} />
+      <div className={'stage-label ' + p.stage}>{p.stage === 'frozen' ? p.realLabel : p.stageLabel}{p.stage !== 'frozen' && p.stageSub && <span className="muted sm-text" style={{ fontWeight: 400 }}> · {p.stageSub}</span>}</div>
+      {p.stage === 'frozen' && <div className="stack-sm" style={{ marginTop: '.35rem' }}><span className="tag frozen-tag" title={r.frozen_reason ?? ''}><Snowflake size={12} />Frozen</span>{r.frozen_reason && <span className="muted sm-text clamp2" style={{ maxWidth: 220 }}>{r.frozen_reason}</span>}</div>}
+      {r.pending_on_id && (
+        <div className="stack-sm" style={{ marginTop: '.45rem' }} onClick={(e) => e.stopPropagation()}>
+          <span className="tag warn" style={{ width: 'fit-content' }}><Bell size={12} />Pending {r.pending_on_name}</span>
+          {remindWhat(r.id) && <span className="sm-text" style={{ maxWidth: 260 }}>{remindWhat(r.id)}</span>}
+          <span className="muted sm-text">{r.pending_since && ago(r.pending_since)}{r.pending_by_name && ` · by ${r.pending_by_name}`}</span>
+          {(r.pending_on_id === me || mine) && <button className="sm" style={{ width: 'fit-content' }} onClick={() => clearRemind(r.id)}><Check size={13} />Mark done</button>}
+        </div>
+      )}
+    </>
+  )
+  const followCell = (last: { body: string; author_name: string; created_at: string } | null | undefined, next: { next_action: string | null; deadline: string | null } | null | undefined, openIssues: number) => (
+    <>
+      {last ? <>
+        <div className="clamp2 sm-text">{last.body}</div>
+        <div className="muted sm-text">{last.author_name} · {ago(last.created_at)}</div>
+      </> : <span className="muted sm-text">No follow-up yet</span>}
+      <div className="row" style={{ gap: '.3rem', marginTop: 3 }}>
+        {openIssues > 0 && <span className="tag warn">{openIssues} issue{openIssues > 1 ? 's' : ''}</span>}
+        {next?.next_action && <span className={'tag' + (next.deadline && next.deadline < new Date().toISOString().slice(0, 10) ? ' warn' : '')} title={next.next_action}>Next: {next.next_action.length > 24 ? next.next_action.slice(0, 24) + '…' : next.next_action}</span>}
+      </div>
+    </>
+  )
+  const actions = (r: PurchaseAccount, p: ReturnType<typeof buildPipeline>, mine: boolean) => (
+      <div className="act-col">
+        {mine && p.stage === 'dev' && <button className="sm primary" onClick={() => act(r.id, 'start')}><Hammer size={14} />Develop</button>}
+        {mine && p.stage === 'devdone' && <button className="sm primary" onClick={() => act(r.id, 'done')}><Check size={14} />Develop Done</button>}
+        <div className="row" style={{ gap: '.3rem', flexWrap: 'nowrap' }}>
+          {!r.frozen && <Menu label="Remind" icon={Bell} options={remindOptions} onPick={(pid) => { setRemindText(''); setRemindFor({ id: r.id, pid, name: remindOptions.find((o) => o.value === pid)?.label ?? '' }) }} />}
+          {mgr && <button className="ghost icon sm" title={r.frozen ? 'Unfreeze' : 'Freeze account'} aria-label={r.frozen ? 'Unfreeze' : 'Freeze account'} onClick={() => { setFreezeText(''); setFreezeFor({ id: r.id, name: r.account_name, frozen: !!r.frozen }) }}><Snowflake size={15} style={r.frozen ? { color: 'var(--brand)' } : undefined} /></button>}
+          <button className="ghost icon sm" aria-label={mine ? 'Edit' : 'View'} onClick={() => open(r)}>{mine ? <Pencil size={15} /> : <Eye size={15} />}</button>
+        </div>
+      </div>
+  )
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!edit) return
     if (edit.testimonial_url?.trim() && !driveOk(edit.testimonial_url)) return setErr('The testimonial needs a Google Drive video link.')
@@ -182,6 +221,29 @@ export default function Accounts() {
         <ColumnFilter chip label="Industry" options={opts((x) => x.r.industry || '—')} selected={cf.industry ?? []} onChange={setCol('industry')} />
         {activeCols > 0 && <><span className="muted sm-text">{activeCols} filter{activeCols > 1 ? 's' : ''} on · {shown.length} shown</span><button type="button" className="ghost sm" onClick={() => setCf({})}>Clear filters</button></>}
       </div>
+      {phone ? (
+        <div className="mlist">
+          {pageRows.map(({ r, p, last, next, openIssues }) => {
+            const mine = canBuild(r)
+            return (
+              <div key={r.id} className="mcard" onClick={() => open(r)}>
+                <div className="cell-title">{r.account_name}</div>
+                <div className="muted sm-text">{[r.industry, r.purchase_date && new Date(r.purchase_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })].filter(Boolean).join(' · ')}</div>
+                <div className="muted sm-text">{r.owner_name ? `Sales: ${r.owner_name}` : 'No sales owner'}{r.ai_builder && ` · Builder: ${r.ai_builder}`}</div>
+                <div className="row sm-text" style={{ gap: '.6rem', marginTop: '.35rem' }}>
+                  {r.contact_person && <span>{r.contact_person}</span>}
+                  {r.phone && <a href={`https://wa.me/${r.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}
+                </div>
+                <div style={{ marginTop: '.55rem' }}>{pipeCell(r, p, mine)}</div>
+                <div style={{ marginTop: '.5rem' }}>{followCell(last, next, openIssues)}</div>
+                <div style={{ marginTop: '.6rem' }} onClick={(e) => e.stopPropagation()}>{actions(r, p, mine)}</div>
+              </div>
+            )
+          })}
+          {!shown.length && <Empty icon={Receipt} title="No accounts found">Try clearing the filters.</Empty>}
+          <Pagination pager={pager} />
+        </div>
+      ) : (
       <div className="card flush table-wrap">
         <table>
           <thead><tr><th><ColumnFilter label="Category" text="Customer" options={opts((x) => x.r.category || '—')} selected={cf.category ?? []} onChange={setCol('category')} /></th><th>Contact</th><th><ColumnFilter label="Onboarding flow" options={opts((x) => x.p.stage, (v) => STAGE_LABEL[v] ?? v, ['o1', 'dev', 'devdone', 'o2', 'o3', 'complete', 'frozen'])} selected={cf.stage ?? []} onChange={setCol('stage')} /></th><th><ColumnFilter label="Latest follow-up" options={opts(fuState, (v) => ({ issue: 'Open issue', pending: 'Waiting on someone', next: 'Has a next action', done: 'Followed up', none: 'No follow-up yet' } as Record<string, string>)[v], ['issue', 'pending', 'next', 'done', 'none'])} selected={cf.followup ?? []} onChange={setCol('followup')} /></th><th className="sticky-end" style={{ width: 168 }}></th></tr></thead>
@@ -203,38 +265,13 @@ export default function Accounts() {
                     </div>
                   </td>
                   <td style={{ minWidth: 180 }}>
-                    <PipelineDots p={p} />
-                    <div className={'stage-label ' + p.stage}>{p.stage === 'frozen' ? p.realLabel : p.stageLabel}{p.stage !== 'frozen' && p.stageSub && <span className="muted sm-text" style={{ fontWeight: 400 }}> · {p.stageSub}</span>}</div>
-                    {p.stage === 'frozen' && <div className="stack-sm" style={{ marginTop: '.35rem' }}><span className="tag frozen-tag" title={r.frozen_reason ?? ''}><Snowflake size={12} />Frozen</span>{r.frozen_reason && <span className="muted sm-text clamp2" style={{ maxWidth: 220 }}>{r.frozen_reason}</span>}</div>}
-                    {r.pending_on_id && (
-                      <div className="stack-sm" style={{ marginTop: '.45rem' }} onClick={(e) => e.stopPropagation()}>
-                        <span className="tag warn" style={{ width: 'fit-content' }}><Bell size={12} />Pending {r.pending_on_name}</span>
-                        {remindWhat(r.id) && <span className="sm-text" style={{ maxWidth: 260 }}>{remindWhat(r.id)}</span>}
-                        <span className="muted sm-text">{r.pending_since && ago(r.pending_since)}{r.pending_by_name && ` · by ${r.pending_by_name}`}</span>
-                        {(r.pending_on_id === me || mine) && <button className="sm" style={{ width: 'fit-content' }} onClick={() => clearRemind(r.id)}><Check size={13} />Mark done</button>}
-                      </div>
-                    )}
+                    {pipeCell(r, p, mine)}
                   </td>
                   <td style={{ maxWidth: 280 }}>
-                    {last ? <>
-                      <div className="clamp2 sm-text">{last.body}</div>
-                      <div className="muted sm-text">{last.author_name} · {ago(last.created_at)}</div>
-                    </> : <span className="muted sm-text">No follow-up yet</span>}
-                    <div className="row" style={{ gap: '.3rem', marginTop: 3 }}>
-                      {openIssues > 0 && <span className="tag warn">{openIssues} issue{openIssues > 1 ? 's' : ''}</span>}
-                      {next?.next_action && <span className={'tag' + (next.deadline && next.deadline < new Date().toISOString().slice(0, 10) ? ' warn' : '')} title={next.next_action}>Next: {next.next_action.length > 24 ? next.next_action.slice(0, 24) + '…' : next.next_action}</span>}
-                    </div>
+                    {followCell(last, next, openIssues)}
                   </td>
                   <td className="sticky-end" onClick={(e) => e.stopPropagation()}>
-                    <div className="act-col">
-                      {mine && p.stage === 'dev' && <button className="sm primary" onClick={() => act(r.id, 'start')}><Hammer size={14} />Develop</button>}
-                      {mine && p.stage === 'devdone' && <button className="sm primary" onClick={() => act(r.id, 'done')}><Check size={14} />Develop Done</button>}
-                      <div className="row" style={{ gap: '.3rem', flexWrap: 'nowrap' }}>
-                        {!r.frozen && <Menu label="Remind" icon={Bell} options={remindOptions} onPick={(pid) => { setRemindText(''); setRemindFor({ id: r.id, pid, name: remindOptions.find((o) => o.value === pid)?.label ?? '' }) }} />}
-                        {mgr && <button className="ghost icon sm" title={r.frozen ? 'Unfreeze' : 'Freeze account'} aria-label={r.frozen ? 'Unfreeze' : 'Freeze account'} onClick={() => { setFreezeText(''); setFreezeFor({ id: r.id, name: r.account_name, frozen: !!r.frozen }) }}><Snowflake size={15} style={r.frozen ? { color: 'var(--brand)' } : undefined} /></button>}
-                        <button className="ghost icon sm" aria-label={mine ? 'Edit' : 'View'} onClick={() => open(r)}>{mine ? <Pencil size={15} /> : <Eye size={15} />}</button>
-                      </div>
-                    </div>
+                    {actions(r, p, mine)}
                   </td>
                 </tr>
               )
@@ -244,6 +281,7 @@ export default function Accounts() {
         {!shown.length && <Empty icon={Receipt} title="No accounts found">Try clearing the filters.</Empty>}
         <Pagination pager={pager} />
       </div>
+      )}
 
       {edit && (
         <Modal wide title={edit.account_name || 'New account'}

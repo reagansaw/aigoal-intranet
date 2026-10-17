@@ -362,3 +362,10 @@ export function ColumnFilter({ label, text, options, selected, onChange, chip }:
 export function Tip({ text }: { text: string }) {
   return <span className="tip" tabIndex={0} role="note" aria-label={text} data-tip={text}><Info size={15} /></span>
 }
+
+/** true on phone-sized screens (matches the ≤ 860px layout breakpoint) */
+export function usePhone() {
+  const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 860px)').matches)
+  useEffect(() => { const m = window.matchMedia('(max-width: 860px)'); const f = () => setPhone(m.matches); m.addEventListener('change', f); return () => m.removeEventListener('change', f) }, [])
+  return phone
+}

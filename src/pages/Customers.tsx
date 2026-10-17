@@ -16,7 +16,7 @@ import Modal from '../components/Modal'
 import CsvImport from '../components/CsvImport'
 import AuditTrail from '../components/AuditTrail'
 import AccountNotes from '../components/AccountNotes'
-import { Alert, ColumnFilter, DatePicker, Empty, Msg, PageHeader, Pagination, PriorityBadge, SearchBox, Select, Stat, usePaged } from '../components/ui'
+import { Alert, ColumnFilter, DatePicker, Empty, Msg, PageHeader, Pagination, PriorityBadge, SearchBox, Select, Stat, usePaged , usePhone } from '../components/ui'
 import { applyOwner, ownerOptions, ownerValue } from '../lib/owners'
 import type { Customer, DemoBooking } from '../lib/types'
 
@@ -158,6 +158,15 @@ export default function Customers() {
 
   // ───── modal ─────
   const open = (r: Partial<Customer>, t: typeof tab = 'details') => { setEdit(r); setTab(t); setErr('') }
+  const phone = usePhone()
+  const statusInfo = (r: Customer) => (
+    <>
+      {r.lead_status && NEEDS_REASON.includes(r.lead_status) && r.status_remark && <div className="muted sm-text clamp2" style={{ maxWidth: 230, marginTop: 3 }} title={r.status_remark}>{r.status_remark}</div>}
+      {(r.lead_status === 'pending_demo' || r.lead_status === 'pending_consultation') && (() => { const d = demoOf(r.id); const k = r.lead_status === 'pending_consultation' ? 'Consultation' : 'Demo'; return <div className="muted sm-text" style={{ marginTop: 3 }}>{d ? <>{k}: <b>{d.staff_name ?? 'TBC'}</b> · {demoWhen(d)}</> : 'Not booked in AIGOAL yet'}</div> })()}
+      {r.lead_status === 'invite_webinar' && <div className="muted sm-text" style={{ marginTop: 3 }}>Invite to <b>{niceDay(r.webinar_invite_date)}</b> webinar</div>}
+      {r.lead_status === 'close_deal' && <div className="muted sm-text" style={{ marginTop: 3 }}>{r.deal_product && <><b>{r.deal_product}</b> · </>}Closed by <b>{r.closed_by_name}</b>{r.closed_date && ` · ${niceDay(r.closed_date)}`}</div>}
+    </>
+  )
   const set = (k: keyof Customer, v: any) => setEdit({ ...edit, [k]: v })
   const save = async (e?: FormEvent) => {
     e?.preventDefault(); if (!edit) return
@@ -238,6 +247,35 @@ export default function Customers() {
         </div>
       )}
       {activeCols > 0 && <div className="row sm-text" style={{ gap: '.6rem', margin: '0 0 .5rem' }}><span className="muted">{activeCols} column filter{activeCols > 1 ? 's' : ''} on · {shown.length} shown</span><button type="button" className="ghost sm" onClick={() => setCf({})}>Clear column filters</button></div>}
+      {phone ? (
+        <div className="mlist">
+          {pageRows.map((r) => (
+            <div key={r.id} className={'mcard' + (sel.includes(r.id) ? ' picked' : '')} onClick={() => open(r)}>
+              <div className="row between" style={{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '.5rem' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="cell-title">{r.name} {isBought(r) && <span className="tag good"><BadgeCheck size={12} />Purchased</span>} {r.prospect && <Star size={14} className="i" style={{ color: '#eab308' }} />}</div>
+                  <div className="muted sm-text">{[r.industry, r.batch, viewAll ? (ownerOf(r) || 'Unassigned') : null].filter(Boolean).join(' · ')}</div>
+                </div>
+                <div className="row" style={{ gap: '.45rem', flexWrap: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                  <PriorityBadge p={r.priority} />
+                  {isAdmin && <input type="checkbox" aria-label={'Select ' + r.name} checked={sel.includes(r.id)} onChange={(e) => setSel(e.target.checked ? [...sel, r.id] : sel.filter((id) => id !== r.id))} style={{ width: 'auto' }} />}
+                </div>
+              </div>
+              <div className="row" style={{ gap: '.4rem', marginTop: '.45rem' }}>
+                {r.phone && <a href={waLink(r.phone)!} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.phone}</a>}
+                {before(r) && <span className="tag good"><PhoneCall size={12} />Called before</span>}
+                {r.not_available && <span className="tag"><PhoneOff size={12} />Not available</span>}
+              </div>
+              <div style={{ marginTop: '.5rem' }} onClick={(e) => e.stopPropagation()}>
+                <Select block value={r.lead_status ?? ''} disabled={!canEditRow(r)} onChange={(v) => changeStatus(r, v)} placeholder="Set status" options={STATUS_OPTS} />
+                {statusInfo(r)}
+              </div>
+            </div>
+          ))}
+          {!shown.length && <Empty icon={Users} title="No customers found">{isAdmin ? 'Add one, import a CSV, or adjust the filters.' : 'Nothing assigned to you yet.'}</Empty>}
+          <Pagination pager={pager} />
+        </div>
+      ) : (
       <div className="card flush table-wrap">
         <table>
           <thead><tr>{isAdmin && <th style={{ width: 40 }}><input type="checkbox" aria-label="Select this page" checked={pageRows.length > 0 && pageRows.every((r) => sel.includes(r.id))} onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...pageRows.map((r) => r.id)])] : sel.filter((id) => !pageRows.some((r) => r.id === id)))} style={{ width: 'auto' }} /></th>}<th><ColumnFilter label="Priority" options={opts((r) => r.priority)} selected={cf.priority ?? []} onChange={setCol('priority')} /></th><th>Name</th><th>Phone</th><th><ColumnFilter label="Industry" options={opts((r) => r.industry || '—')} selected={cf.industry ?? []} onChange={setCol('industry')} /></th>{viewAll && <th><ColumnFilter label="Sales" options={opts((r) => ownerOf(r) || '—', (v) => (v === '—' ? 'Unassigned' : v))} selected={cf.sales ?? []} onChange={setCol('sales')} /></th>}<th><ColumnFilter label="Webinar" options={opts((r) => r.batch || '—', undefined, batches.map((x) => x.label))} selected={cf.webinar ?? []} onChange={setCol('webinar')} /></th><th><ColumnFilter label="Call" options={opts(callOf, (v) => ({ called: 'Called before', na: 'Not available', none: 'Not called yet' } as Record<string, string>)[v], ['called', 'na', 'none'])} selected={cf.call ?? []} onChange={setCol('call')} /></th><th style={{ minWidth: 200 }}><ColumnFilter label="Status" options={opts((r) => r.lead_status || 'none', (v) => (v === 'none' ? 'No status' : statusOf(v)?.label ?? v), ['none', ...LEAD_STATUS.map((x) => x.value)])} selected={cf.status ?? []} onChange={setCol('status')} /></th><th className="sticky-end" style={{ width: 52 }}></th></tr></thead>
@@ -257,10 +295,7 @@ export default function Customers() {
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <Select value={r.lead_status ?? ''} disabled={!canEditRow(r)} onChange={(v) => changeStatus(r, v)} placeholder="Set status" options={STATUS_OPTS} />
-                    {r.lead_status && NEEDS_REASON.includes(r.lead_status) && r.status_remark && <div className="muted sm-text clamp2" style={{ maxWidth: 230, marginTop: 3 }} title={r.status_remark}>{r.status_remark}</div>}
-                    {(r.lead_status === 'pending_demo' || r.lead_status === 'pending_consultation') && (() => { const d = demoOf(r.id); const k = r.lead_status === 'pending_consultation' ? 'Consultation' : 'Demo'; return <div className="muted sm-text" style={{ marginTop: 3 }}>{d ? <>{k}: <b>{d.staff_name ?? 'TBC'}</b> · {demoWhen(d)}</> : 'Not booked in AIGOAL yet'}</div> })()}
-                    {r.lead_status === 'invite_webinar' && <div className="muted sm-text" style={{ marginTop: 3 }}>Invite to <b>{niceDay(r.webinar_invite_date)}</b> webinar</div>}
-                    {r.lead_status === 'close_deal' && <div className="muted sm-text" style={{ marginTop: 3 }}>{r.deal_product && <><b>{r.deal_product}</b> · </>}Closed by <b>{r.closed_by_name}</b>{r.closed_date && ` · ${niceDay(r.closed_date)}`}</div>}
+                    {statusInfo(r)}
                   </td>
                   <td className="sticky-end"><Pencil size={15} className="i" style={{ color: 'var(--muted)' }} /></td>
                 </tr>
@@ -271,6 +306,7 @@ export default function Customers() {
         {!shown.length && <Empty icon={Users} title="No customers found">{isAdmin ? 'Add one, import a CSV, or adjust the filters.' : 'Nothing assigned to you yet.'}</Empty>}
         <Pagination pager={pager} />
       </div>
+      )}
 
       {edit && (
         <Modal wide title={edit.name || 'New customer'}

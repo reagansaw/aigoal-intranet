@@ -605,3 +605,54 @@ button.link:hover { background: transparent; text-decoration: underline; }
   .main { padding-bottom: calc(5.2rem + env(safe-area-inset-bottom)); }
   .modal-bg { bottom: 0; }
 }
+
+/* ───── phone layout pass (≤ 860px) ───── */
+@media (max-width: 860px) {
+  .main { overflow-x: clip; }
+  /* page header: compact title, full-width search, buttons share the row evenly */
+  .page-head { margin-bottom: 1rem; gap: .7rem; }
+  .page-head h1 { font-size: 1.45rem; }
+  .page-head .sub, .page-head p { font-size: .85rem; }
+  .page-head .actions { width: 100%; gap: .45rem; }
+  .page-head .actions > button { flex: 1 1 auto; justify-content: center; }
+  .page-head .actions > .search, .search { flex: 1 1 100%; max-width: none; }
+  /* filter rows: two selects per line, search on its own line */
+  .main > .row:has(> .search) { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+  .main > .row:has(> .search) > .search, .main > .row:has(> .search) > .muted, .main > .row:has(> .search) > span { grid-column: 1 / -1; }
+  .main > .row:has(> .search) > .sel-btn { width: 100%; min-width: 0; }
+  /* cards and tables */
+  .card { padding: .9rem; }
+  .card-head { flex-wrap: wrap; }
+  .card-head > .tabs { flex: 1 1 100%; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; order: 2; }
+  .card-head > .tabs button { padding: .4rem .3rem; text-align: center; }
+  .card-head > .chips { flex: 1 1 100%; order: 3; }
+  .table-wrap td, .table-wrap th { white-space: nowrap; }
+  .table-wrap .cell-title { white-space: nowrap; }
+  .table-wrap { scrollbar-width: thin; }
+  .card.flush .card-head { padding: .9rem .9rem 0; }
+  /* Home attention tiles: two per row */
+  .attn { grid-template-columns: 1fr 1fr; gap: .45rem; }
+  .attn-item { flex-direction: column; align-items: flex-start; gap: .3rem; padding: .7rem .75rem .7rem .9rem; }
+  .attn-n { font-size: 1.3rem; }
+  .attn-l { font-size: .8rem; line-height: 1.25; }
+  /* tooltips never widen the page */
+  .tip::after { left: 0; transform: none; width: min(300px, calc(100vw - 3rem)); }
+  /* comfortable tap targets */
+  .page-head button, .main > .row > button, .modal-foot button { min-height: 42px; }
+  .legend { gap: .5rem .8rem; }
+  .pager { flex-wrap: wrap; gap: .5rem; }
+}
+@media (max-width: 480px) {
+  .grid { gap: .6rem; }
+  .tabs { width: 100%; display: flex; }
+  .tabs button { flex: 1 1 auto; text-align: center; padding: .38rem .5rem; }
+}
+
+/* phone card lists (Customers, Accounts) */
+.mlist { display: grid; gap: .6rem; }
+.mcard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: .85rem .9rem; box-shadow: var(--shadow); }
+.mcard.picked { border-color: var(--brand); background: var(--brand-soft); }
+.mcard .cell-title { font-size: 1rem; }
+.mcard .act-col { display: flex; flex-direction: row; flex-wrap: wrap; gap: .4rem; align-items: center; justify-content: flex-start; }
+.mcard .act-col .row { flex-wrap: nowrap; }
+.mlist .pager { padding: .4rem .2rem; }
