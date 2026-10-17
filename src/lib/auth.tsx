@@ -13,6 +13,7 @@ interface Ctx {
   isMgr: boolean      // role Manager: edits Follow-Up Customers and Purchase Accounts like Admin
   isExternal: boolean // role External: only their own accounts and leads
   canManageCrm: boolean // admin or manager
+  canEditKb: boolean    // admin, HR or manager
   refresh: () => Promise<void>
   signOut: () => Promise<void>
 }
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isMgr: role === 'manager',
         isExternal: role === 'external',
         canManageCrm: role === 'admin' || role === 'manager',
+        canEditKb: role === 'admin' || role === 'hr' || role === 'manager',
         refresh: () => loadProfile(session),
         signOut: async () => { await supabase.auth.signOut() },
       }}

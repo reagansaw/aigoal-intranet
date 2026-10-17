@@ -224,6 +224,8 @@ export interface KbArticle {
   body: string | null
   url: string | null
   pinned: boolean
+  visibility: 'public' | 'private'
+  allowed_ids: string[]
 }
 
 export interface Holiday { id: string; holiday_date: string; name: string; region: string; active: boolean }
