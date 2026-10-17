@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, ListChecks, ListTodo, Plus, Sun, Timer, Trash2, TriangleAlert } from 'lucide-react'
+import { AlarmClockOff, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, ListChecks, ListTodo, Plus, Sun, Timer, Trash2, TriangleAlert } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useStaff } from '../lib/useStaff'
@@ -25,7 +25,7 @@ export default function Todos() {
   const [range, setRange] = useState<Range>('month')
   const [layout, setLayout] = useState<'today' | 'board' | 'list'>('today')
   const [overdue, setOverdue] = useState<Todo[]>([])
-  const [upcoming, setUpcoming] = useState<Record<string, Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at'>[]>>({})
+  const [upcoming, setUpcoming] = useState<Record<string, Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at' | 'delayed_days'>[]>>({})
   const [day, setDay] = useState(today())
   const [todos, setTodos] = useState<Todo[]>([])
   const [inbox, setInbox] = useState<Todo[]>([])
@@ -58,8 +58,8 @@ export default function Todos() {
     // Today tab: overdue from earlier days (unticked, past due) and the next 30 days for the strip
     const { data: od } = await supabase.from('todos').select('*').eq('user_id', uid).eq('done', false).lt('due_date', today()).order('due_date')
     setOverdue((od ?? []) as Todo[])
-    const { data: up } = await supabase.from('todos').select('due_date, done, created_at, done_at').eq('user_id', uid).gte('due_date', today()).lte('due_date', addDays(today(), 29))
-    const u: Record<string, Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at'>[]> = {}
+    const { data: up } = await supabase.from('todos').select('due_date, done, created_at, done_at, delayed_days').eq('user_id', uid).gte('due_date', today()).lte('due_date', addDays(today(), 29))
+    const u: Record<string, Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at' | 'delayed_days'>[]> = {}
     ;(up ?? []).forEach((x: any) => (u[x.due_date] ||= []).push(x))
     setUpcoming(u)
   }
@@ -130,13 +130,14 @@ export default function Todos() {
         </div>
       </div>
 
-      <div className="row" style={{ gap: '.4rem', margin: '0 0 .5rem' }}><b>Marks</b><Tip text="Mark = done ÷ total to-do (10 to-do with 5 done = 5/10 = 50%). Not done = past its due date without a tick. A task created and due on the same day must be ticked by the end of that day; if not, it counts as not done even if ticked later." /></div>
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+      <div className="row" style={{ gap: '.4rem', margin: '0 0 .5rem' }}><b>Marks</b><Tip text="Mark = points ÷ total to-do. Done on time = 1 point, done after a delay (moved to a later day) = 0.5 point, not done = 0. Example: 10 to-do, 5 done on time = 50%; if 2 of those 5 were delayed, 4/10 = 40%. Not done = past its due date without a tick. A task created and due on the same day must be ticked by the end of that day; if not, it counts as not done even if ticked later." /></div>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
         <Stat icon={ListTodo} label="Total to-do" value={marks.total} />
         <Stat icon={ListChecks} tone="green" label="Done" value={marks.done} />
         <Stat icon={TriangleAlert} tone="red" label="Not done" value={marks.missed} />
         <Stat icon={CalendarDays} tone="gray" label="Still open" value={marks.open} />
-        <Stat icon={CalendarDays} tone="yellow" label={`Mark · ${marks.done}/${marks.total}`} value={marks.score == null ? '—' : `${marks.score}%`} />
+        <Stat icon={AlarmClockOff} tone="orange" label={marks.delayedDays ? `Delayed · ${marks.delayedDays} day${marks.delayedDays > 1 ? 's' : ''} total` : 'Delayed'} value={marks.delayed} />
+        <Stat icon={CalendarDays} tone="yellow" label={`Mark · ${marks.done} done${marks.delayed ? `, ${marks.delayed} delayed` : ''} / ${marks.total}`} value={marks.score == null ? '—' : `${marks.score}%`} />
       </div>
 
       {layout === 'today' && <TodayView uid={uid} day={day} setDay={setDay} todays={todos} overdue={overdue.filter((t) => t.due_date !== day)} backlog={inbox} upcoming={upcoming} onChange={load} />}

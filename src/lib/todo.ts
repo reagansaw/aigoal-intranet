@@ -25,9 +25,15 @@ export function outcomeOf(t: Pick<Todo, 'done' | 'due_date' | 'created_at' | 'do
 }
 export const isLate = (t: Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at'>) => outcomeOf(t) === 'done' && !!t.due_date && !!t.done_at && klDay(t.done_at) > t.due_date
 
-export function tally(list: Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at'>[]) {
-  let done = 0, missed = 0, open = 0
-  list.forEach((t) => { const o = outcomeOf(t); if (o === 'done') done++; else if (o === 'missed') missed++; else open++ })
-  // mark = done out of ALL the to-dos in the period (5 done of 10 = 50%)
-  return { done, missed, open, total: list.length, score: list.length ? Math.round((done / list.length) * 100) : null as number | null }
+export function tally(list: Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at' | 'delayed_days'>[]) {
+  let done = 0, missed = 0, open = 0, delayed = 0, delayedDays = 0, points = 0
+  list.forEach((t) => {
+    const o = outcomeOf(t)
+    if (t.delayed_days > 0) { delayed++; delayedDays += t.delayed_days }
+    if (o === 'done') { done++; points += t.delayed_days > 0 ? 0.5 : 1 }   // a delayed task earns only half a mark
+    else if (o === 'missed') missed++
+    else open++
+  })
+  // mark = points ÷ total to-do: done on time = 1, done after a delay = 0.5, not done = 0
+  return { done, missed, open, delayed, delayedDays, total: list.length, score: list.length ? Math.round((points / list.length) * 100) : null as number | null }
 }

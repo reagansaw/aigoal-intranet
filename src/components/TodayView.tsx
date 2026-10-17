@@ -24,7 +24,7 @@ export function DelayTag({ t }: { t: Pick<Todo, 'delayed_days' | 'original_due'>
  */
 export default function TodayView({ uid, day, setDay, todays, overdue, backlog, upcoming, onChange }: {
   uid: string; day: string; setDay: (d: string) => void
-  todays: Todo[]; overdue: Todo[]; backlog: Todo[]; upcoming: Record<string, Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at'>[]>; onChange: () => void
+  todays: Todo[]; overdue: Todo[]; backlog: Todo[]; upcoming: Record<string, Pick<Todo, 'done' | 'due_date' | 'created_at' | 'done_at' | 'delayed_days'>[]>; onChange: () => void
 }) {
   const [title, setTitle] = useState('')
   const [when, setWhen] = useState<When>('today')

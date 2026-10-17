@@ -123,15 +123,15 @@ function TeamStatus({ team, hidden, setHidden }: { team: StaffRow[]; hidden: str
                 <div style={{ minWidth: 0, flex: 1 }}><div className="cell-title">{s.name}</div><div className="muted sm-text">{s.title || s.role}</div></div>
                 {s.must_change_password ? <span className="tag">Not signed in yet</span> : s.away_today === 'leave' ? <span className="tag warn">On leave</span> : s.away_today === 'travel' ? <span className="tag brand">Travelling</span> : <span className={'sm-text ' + (online ? 'ok' : 'muted')}>{online ? 'Online' : ago(s.last_seen_at)}</span>}
               </div>
-              {(() => { const inR = (all[s.id] ?? []).filter((x) => x.due_date && x.due_date >= rf && x.due_date <= rt); const mk = tally(inR); const dl = inR.filter((x) => x.delayed_days > 0); const dlDays = dl.reduce((n, x) => n + x.delayed_days, 0); return (
+              {(() => { const inR = (all[s.id] ?? []).filter((x) => x.due_date && x.due_date >= rf && x.due_date <= rt); const mk = tally(inR); return (
                 <div className="team-block">
-                  <div className="team-label"><span>Marks · {range === 'day' ? 'today' : range === 'week' ? 'this week' : 'this month'}</span><b>{mk.total ? `${mk.done}/${mk.total} = ${mk.score}%` : 'No to-do'}</b></div>
+                  <div className="team-label"><span>Marks · {range === 'day' ? 'today' : range === 'week' ? 'this week' : 'this month'}</span><b>{mk.total ? `${mk.done}/${mk.total}${mk.delayed ? ` (${mk.delayed} delayed)` : ''} = ${mk.score}%` : 'No to-do'}</b></div>
                   <div className="bar"><i style={{ width: `${mk.score ?? 0}%` }} /></div>
                   <div className="row" style={{ gap: '.3rem', marginTop: '.4rem' }}>
                     {mk.total > 0 && <span className="tag good">{mk.done} done</span>}
                     {mk.missed > 0 && <span className="tag warn">{mk.missed} not done</span>}
                     {mk.open > 0 && <span className="tag">{mk.open} open</span>}
-                    {dl.length > 0 && <span className="tag bad" title="Tasks moved to a later day (recorded, cannot be edited)">{dl.length} delayed · {dlDays} day{dlDays > 1 ? 's' : ''}</span>}
+                    {mk.delayed > 0 && <span className="tag bad" title="Moved to a later day; each earns only half a mark">{mk.delayed} delayed · {mk.delayedDays} day{mk.delayedDays > 1 ? 's' : ''}</span>}
                     {s.todos_unscheduled > 0 && <span className="tag">{s.todos_unscheduled} waiting for a day</span>}
                     {s.meeting_overdue > 0 && <span className="tag warn">{s.meeting_overdue} meeting actions late</span>}
                   </div>
