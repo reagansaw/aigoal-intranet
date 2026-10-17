@@ -21,14 +21,15 @@ export default function App() {
   const { session, profile, loading, isAdmin, isHr, isManager, isExternal, signOut } = useAuth()
   if (loading) return <div className="center muted">Loading…</div>
   if (!session) return <Login />
-  if (!profile || !profile.active)
+  const ended = !!profile?.end_date && profile.end_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' })
+  if (!profile || !profile.active || ended)
     return (
       <div className="center">
         <div className="login">
           <div className="card">
             <ShieldAlert size={36} style={{ color: 'var(--warn)' }} />
             <h1 style={{ margin: '.6rem 0' }}>No access</h1>
-            <p className="muted">Your account is inactive or has no profile. Please contact Admin or HR.</p>
+            <p className="muted">{ended ? `Your employment ended on ${profile!.end_date}, so this account is closed.` : 'Your account is inactive or has no profile.'} Please contact Admin or HR.</p>
             <button onClick={signOut}>Sign out</button>
           </div>
         </div>

@@ -21,6 +21,8 @@ async function call(body: object) {
   return data
 }
 
+const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' })
+
 export default function People() {
   const { isAdmin } = useAuth()
   const [list, setList] = useState<Profile[]>([])
@@ -78,7 +80,7 @@ export default function People() {
                 <td><div className="row" style={{ flexWrap: 'nowrap' }}><div className="avatar">{initials(p.full_name || p.email)}</div><div><div className="cell-title">{p.full_name || '—'}</div><div className="muted sm-text">{p.email}</div></div></div></td>
                 <td>{p.phone}</td><td>{p.title}</td><td>{p.employment_type}</td>
                 <td className="muted">{p.start_date ?? '—'} to {p.end_date ?? 'ongoing'}</td>
-                <td><span className={'tag ' + p.role}>{p.role}</span>{p.is_sales && <span className="tag brand" style={{ marginLeft: '.3rem' }}>Sales</span>}{p.is_ai_builder && <span className="tag good" style={{ marginLeft: '.3rem' }}>AI Builder</span>}{!p.active && <span className="tag warn" style={{ marginLeft: '.3rem' }}>inactive</span>}</td>
+                <td><span className={'tag ' + p.role}>{p.role}</span>{p.is_sales && <span className="tag brand" style={{ marginLeft: '.3rem' }}>Sales</span>}{p.is_ai_builder && <span className="tag good" style={{ marginLeft: '.3rem' }}>AI Builder</span>}{!p.active && <span className="tag warn" style={{ marginLeft: '.3rem' }}>inactive</span>}{p.active && p.end_date && p.end_date < today && <span className="tag bad" style={{ marginLeft: '.3rem' }} title="End date has passed — cannot sign in">ended</span>}</td>
                 <td><button className="ghost icon sm" aria-label="Edit" onClick={() => { setEdit(p); setEmail(p.email ?? ''); setErr('') }}><Pencil size={15} /></button></td>
               </tr>
             ))}
